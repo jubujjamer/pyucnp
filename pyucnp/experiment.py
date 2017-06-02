@@ -27,7 +27,7 @@ class SourceBeam(object):
     """ Light beam definitions, properties and visualization.
     """
     def __init__(self, beam_shape=None, amplitude=None, wavelength=None,
-                 waist=None):
+                 waist=None, width=None):
         """
         Parameters:
         ----------
@@ -52,7 +52,11 @@ class SourceBeam(object):
         if waist is not None:
             self.waist = float(waist)
         else:
-            self.waist = None
+            self.width = None
+        if width is not None:
+            self.width = float(width)
+        else:
+            self.width = None
 
     def field_power(self, x, y, z):
         """ Calculates the beam power in a given point where point=[x, y, z]
@@ -62,14 +66,34 @@ class SourceBeam(object):
             """
             zr = np.pi*self.waist**2/self.wavelength
             i0 = self.amplitude**2/(1+(z/zr)**2)
-            p0 = np.exp(-(x**2+y**2)/(self.waist**2*(1+(z/zr)**2)))
+            p0 = np.exp(-2*(x**2+y**2)/(self.waist**2*(1+(z/zr)**2)))
             return i0*p0
 
         if self.beam_shape == 'hattop':
-            """ Constant amplitude beam.
+            """ Constant amplitude beam with the same power as the gaussian.
             """
-            i0 = self.amplitude**2
-            return i0
+            radius = np.sqrt(x**2+y**2)
+            if self.width is None:
+                print("Constant amplitude beam must specify the beam's width.")
+                return
+            if self.waist is None:
+                print("Constant amplitude beam must specify waist for Gaussian Comparison.")
+                return
+            beam_area = np.pi*(self.width/2)**2
+            # print(x, x**2)
+            # Why it doesn't work with x**2???
+            # if np.abs(x) < self.width/2 and np.abs(y) < self.width/2:
+            #     beam_area = np.pi*(self.width/2)**2
+            #     P0 = self.amplitude**2*np.pi*self.waist/beam_area
+            #     P0 = np.pi*P0/8
+            # else:
+            #     P0 = 0
+            # beam_area = np.pi*(self.width/2)**2
+            # P0 = int(radius < self.width/2)*self.amplitude**2*np.pi*self.waist/beam_area
+            beam_area = np.pi*(self.width/2)**2
+            P0 = self.amplitude**2*np.pi*self.waist/beam_area
+            P0 = 0.5*P0/(1+np.exp(10*(radius-(self.width/2))))
+            return P0
 
     def field_integral(self, box):
         """ Integral of the electric field inside an input box.
@@ -77,10 +101,31 @@ class SourceBeam(object):
         ----------
             box:    (3x2 array) [ [x0, x1], [y0,y1], [z0, z1] ]
         """
-
-        integral = integrate.nquad(self.field_power, box)
+        # if self.beam_shape == 'hattop':
+        #     def opts0(x, y, z):
+        #         if np.sqrt(x**2+y**2) > (self.width/2):
+        #             return {'points': [x,y,z]}
+        #         else:
+        #             return {'points': []}
+        # elif self.beam_shape == 'gaussian':
+        #     def opts0(x, y, z):
+        #         return {'points': []}
+        integral = integrate.nquad(self.field_power, box, opts=[{'epsabs': 5e-7}, {}, {}, {} ])
         return integral[0]
 
+    def scalar_field_plot(self, box):
+        from mayavi import mlab
+        xmin, xmax = box[0]
+        ymin, ymax = box[1]
+        zmin, zmax = box[2]
+        x, y, z = np.ogrid[xmin:xmax:100j, ymin:ymax:100j, zmin:zmax:100j]
+        field = self.field_power(x, y, z)
+        print(field.max())
+        mlab.figure(bgcolor=(1, 1, 1), fgcolor=(0., 0., 0.))
+        mlab.pipeline.volume(mlab.pipeline.scalar_field(field), vmin=0)
+        mlab.view(azimuth=0,  elevation=90, distance=200, focalpoint=None, roll=0)
+        mlab.outline(extent=[0, 100, 0, 400, 0, 100], opacity=1.)
+        mlab.show()
 
 class Material(object):
     """ Emissive material and its properties.
@@ -110,7 +155,7 @@ class EmissionMeasurement(object):
     def set_geometry(self, box):
         """ Definition of the geometry of the experiment.
         """
-        self.geometry = geometry
+        self.geometry = box
         return box
 
     def emitted_band_power(self, x, y, z, c1, c2):
@@ -195,22 +240,3 @@ class EmissionMeasurement(object):
 #     return c1*power_distribution+c2*power_distribution**2
 #
 # # total_box_power = integrate.nquad(output_power, [[-rmax,rmax], [-rmax,rmax], [-250, 250]], args=(1, 5, 0.5, 1, 1))
-field_amplitude = 2
-constant_beam = SourceBeam(beam_shape='hattop', amplitude=field_amplitude, wavelength=0.5)
-gaussian_beam = SourceBeam(beam_shape='gaussian', amplitude=field_amplitude, wavelength=0.5, waist=1)
-material = Material([[540, 4, 4], [650, 1, 4]])
-rmax = 5
-geometry = np.array([[-rmax, rmax], [-rmax, rmax], [-10, 10]])
-experiment_gauss = EmissionMeasurement(gaussian_beam, material, geometry)
-experiment_constant = EmissionMeasurement(constant_beam, material, geometry)
-
-wlens = np.linspace(500, 700, 200)
-band_parameters = [540, 1, 2]
-spectrum_gauss = experiment_gauss.total_spectrum(wlens=wlens)
-spectrum_constant = experiment_constant.total_spectrum(wlens=wlens)
-
-fig, ax = plt.subplots(1,1)
-ax.plot(wlens, spectrum_gauss/spectrum_gauss.max())
-ax.plot(wlens, spectrum_constant/spectrum_constant.max(), 'r')
-ax.legend(['Gaussian', 'Constant'])
-plt.show()
