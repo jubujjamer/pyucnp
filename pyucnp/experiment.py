@@ -52,11 +52,12 @@ class SourceBeam(object):
         if waist is not None:
             self.waist = float(waist)
         else:
-            self.width = None
+            self.waist = None
         if width is not None:
             self.width = float(width)
         else:
             self.width = None
+
 
     def field_power(self, x, y, z):
         """ Calculates the beam power in a given point where point=[x, y, z]
@@ -72,27 +73,28 @@ class SourceBeam(object):
         if self.beam_shape == 'hattop':
             """ Constant amplitude beam with the same power as the gaussian.
             """
-            radius = np.sqrt(x**2+y**2)
+            radius = x**2+y**2
             if self.width is None:
                 print("Constant amplitude beam must specify the beam's width.")
                 return
             if self.waist is None:
                 print("Constant amplitude beam must specify waist for Gaussian Comparison.")
                 return
-            beam_area = np.pi*(self.width/2)**2
-            # print(x, x**2)
             # Why it doesn't work with x**2???
-            # if np.abs(x) < self.width/2 and np.abs(y) < self.width/2:
-            #     beam_area = np.pi*(self.width/2)**2
-            #     P0 = self.amplitude**2*np.pi*self.waist/beam_area
-            #     P0 = np.pi*P0/8
-            # else:
-            #     P0 = 0
             # beam_area = np.pi*(self.width/2)**2
-            # P0 = int(radius < self.width/2)*self.amplitude**2*np.pi*self.waist/beam_area
-            beam_area = np.pi*(self.width/2)**2
-            P0 = self.amplitude**2*np.pi*self.waist/beam_area
-            P0 = 0.5*P0/(1+np.exp(10*(radius-(self.width/2))))
+            # P0 = (radius < self.width/2)*self.amplitude**2*np.pi*self.waist/beam_area
+            ######## A cylinder (integral does not converge)
+            # beam_area = np.pi*(self.width/2)**2
+            # P0 = np.ones_like(z)*self.amplitude**2*np.pi*self.waist**2/beam_area
+            # cut_factor = 1/(1+np.exp(20*(radius-(self.width/2)**2)))
+            # P0 = 0.5*P0*cut_factor
+            # Rectangular beam (easier integration)
+            beam_area = (self.width)**2
+            s = self.width/2
+            if np.abs(x) < s and np.abs(y) < s:
+                P0 = 0.5*np.ones_like(z)*self.amplitude**2*np.pi*self.waist**2/beam_area
+            else:
+                P0 = 0
             return P0
 
     def field_integral(self, box):
@@ -110,7 +112,7 @@ class SourceBeam(object):
         # elif self.beam_shape == 'gaussian':
         #     def opts0(x, y, z):
         #         return {'points': []}
-        integral = integrate.nquad(self.field_power, box, opts=[{'epsabs': 5e-7}, {}, {}, {} ])
+        integral = integrate.nquad(self.field_power, box, opts=[{}, {}, {}, {} ])
         return integral[0]
 
     def scalar_field_plot(self, box):
@@ -120,9 +122,8 @@ class SourceBeam(object):
         zmin, zmax = box[2]
         x, y, z = np.ogrid[xmin:xmax:100j, ymin:ymax:100j, zmin:zmax:100j]
         field = self.field_power(x, y, z)
-        print(field.max())
         mlab.figure(bgcolor=(1, 1, 1), fgcolor=(0., 0., 0.))
-        mlab.pipeline.volume(mlab.pipeline.scalar_field(field), vmin=0)
+        mlab.pipeline.volume(mlab.pipeline.scalar_field(field),vmin=0)
         mlab.view(azimuth=0,  elevation=90, distance=200, focalpoint=None, roll=0)
         mlab.outline(extent=[0, 100, 0, 400, 0, 100], opacity=1.)
         mlab.show()
