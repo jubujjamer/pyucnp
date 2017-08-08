@@ -123,7 +123,7 @@ class SourceBeam(object):
         x, y, z = np.ogrid[xmin:xmax:100j, ymin:ymax:100j, zmin:zmax:100j]
         field = self.field_power(x, y, z)
         mlab.figure(bgcolor=(1, 1, 1), fgcolor=(0., 0., 0.))
-        mlab.pipeline.volume(mlab.pipeline.scalar_field(field),vmin=0)
+        mlab.pipeline.volume(mlab.pipeline.scalar_field(field), vmin=0, vmax=.005)
         mlab.view(azimuth=0,  elevation=90, distance=200, focalpoint=None, roll=0)
         mlab.outline(extent=[0, 100, 0, 400, 0, 100], opacity=1.)
         mlab.show()

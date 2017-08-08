@@ -20,10 +20,10 @@ field_amplitude = 2
 
 fix, axes = plt.subplots(1, 3)
 axes_iter = iter(axes)
-rmax_iter = iter([1, 4, 10])
-zmax = 1
+rmax_iter = iter([2, 4, 10])
+zmax = 1.
 
-for waist in [.1, 1, 5]:
+for waist in [.1, .5, 1.]:
     constant_beam = SourceBeam(beam_shape='hattop', amplitude=field_amplitude, wavelength=0.5, width=1., waist=waist)
     gaussian_beam = SourceBeam(beam_shape='gaussian', amplitude=field_amplitude, wavelength=0.5, waist=waist)
 
@@ -32,7 +32,6 @@ for waist in [.1, 1, 5]:
     power_flux = constant_beam.field_integral(box)
     print("Gaussian power flux", gaussian_beam.field_integral(box))
     print("Constant power flux", power_flux)
-    # constant_beam.scalar_field_plot(box)
 
     material = Material([[540, 4, 4], [650, 1, 4]])
     geometry = box
@@ -43,7 +42,7 @@ for waist in [.1, 1, 5]:
     band_parameters = [540, 1, 2]
     spectrum_gauss = experiment_gauss.total_spectrum(wlens=wlens)
     spectrum_constant = experiment_constant.total_spectrum(wlens=wlens)
-
+    print('plot')
     ax = axes_iter.next()
     ax.plot(wlens, spectrum_gauss/spectrum_gauss.max(), 'k--',linewidth=1.5)
     ax.plot(wlens, spectrum_constant/spectrum_constant.max(), 'g-.',linewidth=2.5)
