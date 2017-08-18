@@ -10,7 +10,7 @@ from statsmodels.sandbox.regression.predstd import wls_prediction_std
 import csv
 
 
-def fit_exponential(tdata, ydata, model='single'):
+def fit_exponential(tdata, ydata, init_params=None, model='single'):
 
     def etu_esa_mixture(t, ka, kUC, a1, a2):
         return a1*np.exp(ka*t)+a2*(1-np.exp((ka+kUC)*t))*np.exp(-kUC*t)
@@ -40,13 +40,15 @@ def fit_exponential(tdata, ydata, model='single'):
         params = model.make_params()
     elif model == 'mixture':
         model = lmfit.Model(etu_esa_mixture)
-        model.set_param_hint('a1', value=.8, min=0, max=2)
-        model.set_param_hint('a2', value=.2, min=-1, max=3)
-        model.set_param_hint('kUC', value=5E4, min=1e4, max=5e6)
-        model.set_param_hint('ka', value=-1E2, min=-5e4, max=-10)
+        if init_params is not None:
+            a1, a2, kUC, ka = init_params
+        model.set_param_hint('a1', value=a1, min=0, max=2)
+        model.set_param_hint('a2', value=a2, min=0, max=3)
+        model.set_param_hint('kUC', value=kUC, min=5E3, max=1e5)
+        model.set_param_hint('ka', value=ka, min=-5e6, max=0)
         params = model.make_params()
     # r1 = model.fit(ydata, t=tdata, params=params, method='Nelder')
-    r2 = model.fit(ydata, t=tdata, params=params, method='leastsq')
+    r2 = model.fit(ydata, t=tdata, params=params, method='leastsq', nan_policy='omit')
 
     # out2 = mini.minimize(method='leastsq', params=out1.params)
     # lmfit.report_fit(out2.params, min_correl=0.5)

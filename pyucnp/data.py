@@ -13,7 +13,7 @@ import pandas as pd
 
 DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
 
-def load_timedata(daystr, filenames, nbins=60):
+def load_timedata(daystr, filenames, nbins=60, ndata=-1):
     TS = 6.4E-8
     basedir = os.path.join(DATA_FOLDER, daystr)
     data_list = list()
@@ -30,7 +30,7 @@ def load_timedata(daystr, filenames, nbins=60):
         times = edges[0:-1]
         y = hist - np.mean(hist[-nbins//20: -1])
         ydata = y/np.mean(y[0:8])
-        data_list.append((times, ydata, title))
+        data_list.append((times[:ndata], ydata[:ndata], title))
     return data_list
 
 def print_datainfo(daystr, filenames):
