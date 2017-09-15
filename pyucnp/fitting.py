@@ -8,6 +8,7 @@ import lmfit
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
 import csv
+import itertools as it
 
 
 def fit_exponential(tdata, ydata, init_params=None, model='single'):
@@ -15,11 +16,14 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
     def etu_esa_mixture(t, ka, kUC, a1, a2):
         return a1*np.exp(ka*t)+a2*(1-np.exp((ka+kUC)*t))*np.exp(-kUC*t)
 
-    def exponential(t, a1, t1):
-        return a1 * np.exp(-(t/t1))
+    def exponential(t, ka, kUC, a1, a2):
+        return a1 * np.exp(-t*ka)
 
-    def double_exponential(t, a1, t1, a2, t2):
-        return a1 * np.exp(-(t/t1)) + a2 * np.exp(t/t2)
+    def double_exponential(t, ka, kUC, a1, a2):
+        return a1 * np.exp(-t*ka) + a2 * np.exp(-t*kUC)
+
+    def double_neg(t, ka, kUC, a1, a2):
+        return a1 * np.exp(-t*ka) + a2 * np.exp(-t*kUC)
 
     def residual_single(p):
        return p['a1']*np.exp(-tdata/p['t1'])-ydata
@@ -30,13 +34,30 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
     nbins = len(tdata)
     if model == 'single':
         model = lmfit.Model(exponential)
-        params = model.make_params(a1=1, min=-10, max=10, t1=100E-6)
+        if init_params is not None:
+            a1, a2, kUC, ka = init_params
+        model.set_param_hint('a1', value=a1, min=0, max=2)
+        model.set_param_hint('a2', value=a2, min=0, max=1E-2)
+        model.set_param_hint('kUC', value=kUC, min=0, max=10)
+        model.set_param_hint('ka', value=ka, min=0, max=1e5)
+        params = model.make_params()
     elif model == 'double':
+        model = lmfit.Model(double_neg)
+        if init_params is not None:
+            a1, a2, kUC, ka = init_params
+        model.set_param_hint('a1', value=a1, min=0, max=2)
+        model.set_param_hint('a2', value=a2, min=0, max=2)
+        model.set_param_hint('kUC', value=kUC, min=0, max=1e5)
+        model.set_param_hint('ka', value=ka, min=0, max=1e5)
+        params = model.make_params()
+    elif model == 'double_neg':
         model = lmfit.Model(double_exponential)
-        model.set_param_hint('a1', value=ydata.max(), min=-10, max=10)
-        model.set_param_hint('a2', value=.1, min=.1, max=10)
-        model.set_param_hint('t1', value=350.E-6, min=0, max=1e-3)
-        model.set_param_hint('t2', value=10.E-6, min=1e-4, max=1E-3)
+        if init_params is not None:
+            a1, a2, kUC, ka = init_params
+        model.set_param_hint('a1', value=a1, min=-1, max=2)
+        model.set_param_hint('a2', value=a2, min=0, max=2)
+        model.set_param_hint('kUC', value=kUC, min=0, max=1e5)
+        model.set_param_hint('ka', value=ka, min=0, max=1e5)
         params = model.make_params()
     elif model == 'mixture':
         model = lmfit.Model(etu_esa_mixture)
@@ -44,12 +65,11 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
             a1, a2, kUC, ka = init_params
         model.set_param_hint('a1', value=a1, min=0, max=2)
         model.set_param_hint('a2', value=a2, min=0, max=3)
-        model.set_param_hint('kUC', value=kUC, min=5E3, max=1e5)
-        model.set_param_hint('ka', value=ka, min=-5e6, max=0)
+        model.set_param_hint('kUC', value=kUC, min=0, max=1e5)
+        model.set_param_hint('ka', value=ka, min=-5e5, max=0)
         params = model.make_params()
     # r1 = model.fit(ydata, t=tdata, params=params, method='Nelder')
     r2 = model.fit(ydata, t=tdata, params=params, method='leastsq', nan_policy='omit')
-
     # out2 = mini.minimize(method='leastsq', params=out1.params)
     # lmfit.report_fit(out2.params, min_correl=0.5)
     # ci, trace = lmfit.conf_interval(mini, out2, sigmas=[1, 2],
@@ -59,34 +79,19 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
     return r2
 
 
-# ydata = np.log(-y-np.min(-y)+0.00001)
-# x_cut = x[start:stop];
-# y_cut = ydata[start:stop];
-# x_cut = sm.add_constant(x_cut)
-# print np.shape(x),np.shape(y)
-# # plt.plot(x[:,1],y)
-# # plt.show()
-# # ydata = np.log(-y-0.0006)
-#
-#
-# # Least squares estimation
-# model = sm.OLS(y_cut, x_cut)
-# results = model.fit()
-# print(results.summary())
-# print('Parameters: ', results.params)
-# print('R2: ', results.rsquared)
-#
-#
-# # We pick 100 hundred points equally spaced from the min to the max
-# x_prime = np.linspace(x_cut[:,1].min(), x_cut[:,1].max(), 100)[:, np.newaxis]
-# x_prime = sm.add_constant(x_prime)  # add constant as we did before
-# # Now we calculate the predicted values
-# y_hat = results.predict(x_prime)
-# # Plots
-# plt.scatter(x_cut[:,1]*TCONV, y_cut, alpha=0.3)  # Plot the raw data
-# plt.plot(x_prime[:, 1]*TCONV, y_hat, 'r',linewidth=2.0, alpha=0.9)  # Add the regression line, colored in red
-# plt.ylabel('Amplitud (V)')
-# plt.xlabel('Tiempo (ms)')
-# plt.title('Tiempo de vida con filtro Edmund')
-# #plt.axis((0,3.5,-10,-3))
-# plt.show()
+def robust_fit(tdata, ydata, init_params=None, model='single'):
+    a1_list = np.arange(-1, 1.2, .2)
+    a2_list = np.arange(0, 1.2, .2)
+    kUC_list = np.arange(0, 1E5, 50E3)
+    ka_list = np.arange(0, 1E5, 50E3)
+    # ka_list = np.arange(0, -1E5, -500E3)
+    init_iter = it.product(a1_list, a2_list, kUC_list, ka_list)
+    chisq_min = np.inf
+    r_min = None
+    for init in init_iter:
+        # init_params = [.8, .9, 3E3, -8E4]
+        result = fit_exponential(tdata, ydata, init_params=init, model=model)
+        if result.chisqr < chisq_min:
+            chisq_min = result.chisqr
+            r_min = result
+    return r_min
