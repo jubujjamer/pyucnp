@@ -54,8 +54,8 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
         model = lmfit.Model(double_exponential)
         if init_params is not None:
             a1, a2, kUC, ka = init_params
-        model.set_param_hint('a1', value=a1, min=-1, max=2)
-        model.set_param_hint('a2', value=a2, min=0, max=2)
+        model.set_param_hint('a1', value=a1, min=0, max=2)
+        model.set_param_hint('a2', value=a2, min=-1, max=0)
         model.set_param_hint('kUC', value=kUC, min=0, max=1e5)
         model.set_param_hint('ka', value=ka, min=0, max=1e5)
         params = model.make_params()
@@ -80,10 +80,10 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
 
 
 def robust_fit(tdata, ydata, init_params=None, model='single'):
-    a1_list = np.arange(-1, 1.2, .2)
-    a2_list = np.arange(0, 1.2, .2)
-    kUC_list = np.arange(0, 1E5, 50E3)
-    ka_list = np.arange(0, 1E5, 50E3)
+    a1_list = np.arange(0, 1.2, .2)
+    a2_list = np.arange(-1.2, 0, .2)
+    kUC_list = np.arange(0, 5E5, 500E4)
+    ka_list = np.arange(0, 1E4, 500E3)
     # ka_list = np.arange(0, -1E5, -500E3)
     init_iter = it.product(a1_list, a2_list, kUC_list, ka_list)
     chisq_min = np.inf
@@ -95,3 +95,19 @@ def robust_fit(tdata, ydata, init_params=None, model='single'):
             chisq_min = result.chisqr
             r_min = result
     return r_min
+
+
+def fit_line(x, y):
+    def residual(params, x, data):
+        b = params['b']
+        m = params['m']
+        model = b + m*x
+        return (data-model)
+
+    params = lmfit.Parameters()
+    params.add('b', value=1.)
+    params.add('m', value=1.)
+
+    result = lmfit.minimize(residual, params, args=(x, y.reshape(1, len(y))))
+
+    return result.params

@@ -7,14 +7,19 @@ Data fitting for UCNP curves.
 """
 import os
 import numpy as np
+import collections
 import matplotlib.pylab as plt
 import scipy
 import pandas as pd
 import fitting as df
+import yaml
+
 
 DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'specs.txt'
 SPEC_YAML = 'data_info.yaml'
+DATA_DEFAULT = 'data.yaml'
+
 
 def load_timedata(daystr, filenames, nbins=60, ndata=-1):
     TS = 6.4E-8
@@ -50,11 +55,11 @@ def print_datainfo(daystr, filenames):
     return
 
 
-def load_spectrum(daystr, filename, meas_n):
+def load_spectrum(daystr, meas_n):
     """ Get Felix PTI spectrum.
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
-    data_fin = os.path.join(basedir, filename)
+    data_fin = os.path.join(basedir, SPEC_DEFAULT)
     columns = list()
     for i in range(132):
         columns.append(str(i))
@@ -70,10 +75,10 @@ def load_spectrum(daystr, filename, meas_n):
         first_nan = -1
     return x[:first_nan], y[:first_nan]
 
-def load_multiple_spectra(daystr):
+def load_multiple_spectra(daystr, datafile=DATA_DEFAULT):
     import yaml
     basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, SPEC_YAML)
+    yaml_fin = os.path.join(basedir, datafile)
     spec_collection = []
     with open(yaml_fin, 'r') as stream:
         try:
@@ -83,7 +88,7 @@ def load_multiple_spectra(daystr):
         except yaml.YAMLError as exc:
             print(exc)
     for m in spectra_to_plot:
-        x, y = load_spectrum(daystr, SPEC_DEFAULT, m)
+        x, y = load_spectrum(daystr, m)
         y = y - np.mean(y[-10:-1])
         spec_collection.append( (np.asarray(x), np.asarray(y)) )
         # if m == 2:
@@ -92,16 +97,20 @@ def load_multiple_spectra(daystr):
     return spec_collection
 
 
-def get_time_data(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1, filenames=None):
+def get_time_data(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1,
+                  filenames=None, datafile=DATA_DEFAULT):
+    """
+    """
+
     import yaml
     basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, SPEC_YAML)
+    yaml_fin = os.path.join(basedir, datafile)
     with open(yaml_fin, 'r') as stream:
         try:
             yaml_data = yaml.load(stream)
-            lpowers = yaml_data['laser_vpp_list']
         except yaml.YAMLError as exc:
             print(exc)
+
     b, a = scipy.signal.butter(2, 0.3)# Para el filtrado (de ser necesario)
     data_list = list()
     # Hago los ajustes y guardo los parámetros ajustados
@@ -114,10 +123,11 @@ def get_time_data(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1,
     return data_list
 
 
-def get_timesets(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1):
+def get_timesets(daystr, nbins=2500, model='mixture', filtering=True,
+                 ndata=-1, datafile=DATA_DEFAULT):
     import yaml
     basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, SPEC_YAML)
+    yaml_fin = os.path.join(basedir, datafile)
     with open(yaml_fin, 'r') as stream:
         try:
             yaml_data = yaml.load(stream)
@@ -129,5 +139,47 @@ def get_timesets(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1):
     for key, filenames in datasets.iteritems():
         datasets_list.append(get_time_data(daystr, nbins=nbins, model=model,
                                            filtering=filtering, ndata=ndata,
-                                           filenames=filenames))
+                                           filenames=filenames, datafile=datafile))
     return datasets_list
+
+
+def get_powers(daystr, datafile=None):
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    yaml_fin = os.path.join(basedir, datafile)
+    with open(yaml_fin, 'r') as stream:
+        try:
+            yaml_data = yaml.load(stream)
+            lpowers = yaml_data['laser_vpp_list']
+        except yaml.YAMLError as exc:
+            print(exc)
+    return lpowers
+
+
+def integrate_power(x, y, center=540, bwidth=10):
+    ci = np.where(x==center)[0][0]  # Center index
+    intp = scipy.integrate.simps(y[ci-bwidth//2:ci+bwidth//2])
+    return intp
+
+
+def get_timepars(daystr=None, nbins=1200, model='double_neg', filtering=False,
+                 ndata=300, dsnumber=0, datafile=DATA_DEFAULT):
+    datasets_list = get_timesets(daystr, nbins=nbins, model=model,
+                                 filtering=filtering, ndata=ndata,
+                                 datafile=datafile)
+    dataset = datasets_list[dsnumber]
+    a1_list, a2_list, ka_list, kUC_list = list(), list(), list(), list()
+    for tdata, ydata, results in dataset:
+        a1_list.append(results.params['a1'].value)
+        a2_list.append(results.params['a2'].value)
+        ka_list.append(results.params['ka'].value)
+        kUC_list.append(results.params['kUC'].value)
+    return np.array(a1_list), np.array(a2_list), np.array(ka_list), np.array(kUC_list)
+
+
+def load_data(daystr):
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    yaml_fin = os.path.join(basedir, DATA_DEFAULT)
+    config_dict = yaml.load(open(yaml_fin, 'r'))
+    config = collections.namedtuple('config', config_dict.keys())
+    cfg = config(*config_dict.values())
+    return cfg
