@@ -103,11 +103,22 @@ def fit_line(x, y):
         m = params['m']
         model = b + m*x
         return (data-model)
-
     params = lmfit.Parameters()
     params.add('b', value=1.)
     params.add('m', value=1.)
-
     result = lmfit.minimize(residual, params, args=(x, y.reshape(1, len(y))))
 
     return result.params
+
+def fit_power(x, y):
+    def cuadratic(x, a0, a1, a2):
+        return a0 + a1*x + a2*x**2
+    model = lmfit.Model(cuadratic)
+    model.set_param_hint('a0', value=1)
+    model.set_param_hint('a1', value=1)
+    model.set_param_hint('a2', value=1)
+    params = model.make_params()
+        # r1 = model.fit(ydata, t=tdata, params=params, method='Nelder')
+    result = model.fit(y, x=x, params=params, method='leastsq', nan_policy='omit')
+    parvals = [result.params[p].value for p in result.params]
+    return result, parvals
