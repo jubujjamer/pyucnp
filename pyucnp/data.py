@@ -11,7 +11,7 @@ import collections
 import matplotlib.pylab as plt
 import scipy
 import pandas as pd
-import fitting as df
+from . import fitting as df
 import yaml
 
 
@@ -56,17 +56,17 @@ def print_datainfo(daystr, filenames):
 
 
 def load_spectrum(daystr, meas_n):
-    """ Get Felix PTI spectrum.
+    """ Get Felix PTI spectrum.wavelength_list
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
     data_fin = os.path.join(basedir, SPEC_DEFAULT)
     columns = list()
     for i in range(132):
         columns.append(str(i))
-    df = pd.read_csv(data_fin, header=None, delimiter='\t', names=columns)
+    table = pd.read_csv(data_fin, header=None, delimiter='\t', names=columns)
     head = 4
-    x = df[str((meas_n-1)*2)][head:]
-    y = df[str((meas_n-1)*2+1)][head:]
+    x = table[str((meas_n-1)*2)][head:]
+    y = table[str((meas_n-1)*2+1)][head:]
     x = [float(x_i) for x_i in x]
     y = [float(y_i) for y_i in y]
     try:
