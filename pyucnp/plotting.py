@@ -25,10 +25,9 @@ from pyucnp.fitting import fit_line, fit_power
 
 def wlen_to_rgb(wavelength, gamma=0.8):
     ''' taken from http://www.noah.org/wiki/Wavelength_to_RGB_in_Python
-    This converts a given wavelength of light to an
-    approximate RGB color value. The wavelength must be given
-    in nanometers in the range from 380 nm through 750 nm
-    (789 THz through 400 THz).
+    This converts a given wavelength of light to an approximate RGB color
+    value. The wavelength must be given in nanometers in the range from 380 nm
+    through 750 nm (789 THz through 400 THz).
 
     Based on code by Dan Bruton
     http://www.physics.sfasu.edu/astro/color/spectra.html
@@ -76,8 +75,39 @@ def wlen_to_rgb(wavelength, gamma=0.8):
     return (R,G,B,A)
 
 
+def normalize_by_iss(tdecay, idecay, iss):
+    """ Normalize a given lifetime curve area by the spectrum peak. Given the
+    area A under the lifetime curve I(t) and its stationary spectrum peak, it's
+    new value will be I(t)*Iss/A..
+
+    Parameters
+    ----------
+    tdecay : array
+        Time series for the idecay curve.
+    idecay : array
+        Decay curve for a given wavelenght and excitation power.
+    iss : float
+        Stationary powe peak for the given wavelength and excitation power.
+
+    Returns
+    -------
+    array, array
+        Time series and normalized decay curve.
+
+    """
+    from scipy.integrate import simps
+    A = simps(idecay, tdecay)
+    return tdecay, idecay*iss/A
+
+
 def setup_matplotlib():
-    """ Setups matplotlib font and sizes.
+    """Sets text size and figure parameters.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
     """
     matplotlib.rcParams.update({'font.size': 14})
     matplotlib.rcParams['mathtext.fontset'] = 'custom'
@@ -88,22 +118,69 @@ def setup_matplotlib():
     plt.rcParams['legend.numpoints'] = 1
 
 def annotate(ax, text, xytext):
-    """ Makes an annotation in the given position.
+    """ Anonotates a given axis at a given position.
+
+    Parameters
+    ----------
+    ax : (matplotlib axes)
+        Description of parameter `ax`.
+    text : string
+        Description of parameter `text`.
+    xytext : tuple
+        Description of parameter `xytext`.
+
+    Returns
+    -------
+    None
+
     """
     ax.annotate(text, xy=(-20, 45),  xycoords='data', xytext=xytext,
             textcoords='axes fraction', horizontalalignment='right', verticalalignment='top')
 
 
-def plot_stationary(power_sweep_list, power_labels, wavelength_list, filename=None):
-# def plot_stationary(spectrum_list, wavelength_list, filename=None):
+def plot_idecays(tdecay, idecay_dict):
     setup_matplotlib()
-    fig, axes = plt.subplots(len(wavelength_list), 1, figsize=[8, 6], sharey=True)
+    fig, (ax1) = plt.subplots(1, 1, figsize=[8, 4])
+    label_iter= iter(['%s nm' % wlen for wlen in idecay_dict.keys()])
+    for key, idecay  in idecay_dict.items():
+        label = next(label_iter)
+        ax1.plot(1E3*tdecay, idecay, color=wlen_to_rgb(key), marker='o', markersize=1.2)
+
+    ax1.set_ylabel("Intensity (norm.)")
+    ax1.set_xlabel("Tiempo (ms)")
+    ax1.legend(ncol=4, loc='upper right')
+    plt.tight_layout(pad=0., w_pad=0.5, h_pad=0.5)
+    plt.show()
+
+
+def plot_stationary(power_list, power_labels, wlen_list, filename=None):
+    """ plot loglog stationary powers.
+
+    Parameters
+    ----------
+    power_sweep_list : type
+        Description of parameter `power_sweep_list`.
+    power_labels : type
+        Description of parameter `power_labels`.
+    wavelength_list : type
+        Description of parameter `wavelength_list`.
+    filename : type
+        Description of parameter `filename`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    setup_matplotlib()
+    fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6], sharey=False)
     axiter = iter(fig.axes)
-    for wlen in wavelength_list:
+    for wlen in wlen_list:
         ax = next(axiter)
         hpslice = slice(-5, -1)
-        lpslice = slice(7, 20)
-        pamps = np.array(power_sweep_list[wlen])
+        lpslice = slice(12, 20)
+        pamps = np.array(power_list[wlen])
         x, y = [10*np.log10(power_labels), 10*np.log10(pamps)]
         lp_params = fit_line(x[lpslice], y[lpslice])
         hp_params = fit_line(x[hpslice], y[hpslice])
@@ -111,12 +188,13 @@ def plot_stationary(power_sweep_list, power_labels, wavelength_list, filename=No
                 markersize=4.5, linewidth = .0)
         ax.plot(x, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
         ax.plot(x, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
-        ax.set_title('$\\lambda = $%s nm' % wlen)
-        annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.8, .15))
-        annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.8, .1))
+        # ax.set_title('$\\lambda = $%s nm' % wlen)
+        annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.8, .35))
+        annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.8, .2))
         # ax.legend(bbox_to_anchor=(0.35, 0.15), loc=2, borderaxespad=0.)
         ax.set_xlim(-30, -6)
-        ax.set_ylim(40, 82)
+        print(np.max(y))
+        ax.set_ylim(np.min(y), np.max(y))
         ax.set_xlabel('Excitation power (dBm)')
         ax.set_ylabel('Emission power (log(), U.A.)')
     if filename:
@@ -154,6 +232,49 @@ def plot_3d(spectrum_list, wavelength_list, filename=None):
         plt.savefig(filename, dpi=300)
     plt.show()
 
+
+
+def plot_spectrums(spectrum_list, filename=None):
+    setup_matplotlib()
+    fig, (ax) = plt.subplots(1, 1, figsize=[8, 4])
+    colors = iter([cm.hot(p*0.1) for p in range(len(spectrum_list))])
+    for spectrum_dict in spectrum_list:
+        x = spectrum_dict['x']
+        y = spectrum_dict['y']
+        y /= np.max(y)
+        ax.plot(x, y, color=next(colors))
+    ax.set_xlabel('Long. de onda (nm)')
+    ax.set_ylabel('Potencia incidente (U.A.)')
+    if filename:
+        plt.savefig(filename)
+    plt.show()
+
+
+def plot_times(wavelengths, datasets_list, cfg):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[8, 10])
+    names = list(cfg.datasets.values())[0]
+    peaks_iter = iter([n.split('_')[1] for n in names])
+
+    delta = 0.0
+    label_iter= iter(['379 nm', '490 nm', '546 nm', '654 nm'])
+    for tdata, ydata, result in datasets_list[0]:
+        delta += .2
+        label = next(label_iter)
+        peak = next(peaks_iter)
+        ax2.plot(1E3*tdata, ydata+delta, color=wlen_to_rgb(peak), marker='o', markersize=1.2)
+        ax2.plot(1E3*tdata, result.best_fit+delta, color=wlen_to_rgb(peak), marker='o', markersize=1.2, label=label)
+        ax2.set_xlim([0, .35])
+
+    ax1.set_ylabel("Amplitud (U.A.)")
+    ax2.set_ylabel("Amplitud (U.A.)")
+    ax1.set_xlabel("Longitud de onda (nm)")
+    ax2.set_xlabel("Tiempo (ms)")
+    ax2.legend(ncol=4, loc='upper right')
+
+    plt.tight_layout(pad=0., w_pad=0.5, h_pad=0.5)
+    plt.show()
+
+
 def cie(spectrum_list):
     from matplotlib.path import Path
     import matplotlib.patches as patches
@@ -178,7 +299,6 @@ def cie(spectrum_list):
         if i == 0:
             codes.append(Path.MOVETO)
         else: codes.append(Path.CURVE3)
-    print(len(codes), len(verts))
     # codes.append(Path.CLOSEPOLY)
     path = Path(verts, codes)
     ax = fig.add_subplot(111)
@@ -197,3 +317,50 @@ def cie(spectrum_list):
         limits=(-0.1, 0.9, -0.1, 0.9),
         x_tighten=True,
         y_tighten=True)
+
+
+def normalized_cie(ax, spectrum_dict):
+    # fig =  cplt.chromaticity_diagram_plot_CIE1931(standalone=False)
+    spd_data = spectrum_dict
+    # sample_spd_data = {522: 0.048,523: 0.152, 524: 0.053, 525: 0.054, 600: 0}
+    spd = colour.SpectralPowerDistribution(spd_data)
+    cmfs = colour.STANDARD_OBSERVERS_CMFS['CIE 1931 2 Degree Standard Observer']
+    # # illuminant = colour.ILLUMINANTS_RELATIVE_SPDS['D65']
+    # # Calculating the sample spectral power distribution *CIE XYZ* tristimulus values.
+    XYZ = colour.spectral_to_XYZ(spd, cmfs)
+    # Plotting the *xy* chromaticity coordinates.
+    x, y =  colour.XYZ_to_xy(XYZ)
+    ax.plot(x, y, 'o-', color='black')
+
+
+def delayed_cie(idecay_dict):
+    """ Plots .
+
+    Parameters
+    ----------
+    idecay_dict : dict
+        Dictionaty of decay curves {wlen: icurve}.
+
+    Returns
+    -------
+    type
+        plots cie spectrum for each delayed time.
+
+    """
+    iss_delayed = dict() # dict of intensities {wavelenght: intensity}
+    wlen_range = range(350, 700)
+    delay_range = range(0, 60, 5)
+    fig =  cplt.chromaticity_diagram_plot_CIE1931(standalone=False)
+    ax = fig.add_subplot(111)
+
+    for delay in delay_range:
+        for wlen in wlen_range:
+            if wlen in idecay_dict.keys():
+                idecay = idecay_dict[wlen]
+                iss_delayed[wlen] = idecay[delay]
+            else:
+                iss_delayed[wlen] = 0
+        normalized_cie(ax, iss_delayed)
+    cplt.render(standalone=True, limits=(-0.1, 0.9, -0.1, 0.9), x_tighten=True,
+                    y_tighten=True)
+    plt.show()

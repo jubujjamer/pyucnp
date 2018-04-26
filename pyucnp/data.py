@@ -21,8 +21,76 @@ SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'data.yaml'
 
 
+
+def UCNPEmission(object):
+    def __init__(self):
+        __all__ = ['__init__']
+
+
+
+def load_idecay(daystr, filename, nbins=60, ndata=-1, TS=6.4E-8):
+    basedir = os.path.join(DATA_FOLDER, daystr)
+
+    data_fin = os.path.join(basedir, filename + '.npy')
+    text_fin = os.path.join(basedir, filename + '.txt')
+    # with open(text_fin, 'r') as textfile:
+    #     title = textfile.readlines()[3]
+    title = filename
+    time_data = np.load(data_fin)*TS
+    hist, edges = np.histogram(time_data, bins=nbins, density=False)
+    times = edges[0:-1]
+    y = hist - np.mean(hist[-nbins//20: -1])
+    ydata = y/np.max(y)
+    return times, ydata
+
+
+def get_timesets(daystr, nbins=2500, model='mixture', filtering=True,
+                 ndata=-1, datafile=DATA_DEFAULT):
+    """ Load time decay data.
+
+    Parameters
+    ----------
+    daystr : string
+        Name of the stored data folder (e.g. 2017-09-22).
+    nbins : int
+        Number of bins points used in the time data.
+    model : string
+        Model for the data fitting. Supported models in fitting.fit_exponential().
+    filtering : bool
+        Should the data be previously filtered or not.
+    ndata : int
+        Number of points in each time series.
+    datafile : string
+        yaml file with extra information on the measurements.
+
+    Returns
+    -------
+    list
+        Description of returned object.
+
+    """
+    import yaml
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    yaml_fin = os.path.join(basedir, datafile)
+    with open(yaml_fin, 'r') as stream:
+        try:
+            yaml_data = yaml.load(stream)
+            datasets = yaml_data['datasets']
+        except yaml.YAMLError as exc:
+            print(exc)
+
+    datasets_list = list()
+    for key, filenames in iter(datasets.items()):
+        datasets_list.append(get_time_data(daystr, nbins=nbins, model=model,
+                                           filtering=filtering, ndata=ndata,
+                                           filenames=filenames, datafile=datafile))
+    return datasets_list
+
+
+
 def load_timedata(daystr, filenames, nbins=60, ndata=-1):
-    TS = 6.4E-8
+
+    TS = 6.4E-8 # TODO: get this from the config file
     basedir = os.path.join(DATA_FOLDER, daystr)
     data_list = list()
     for filename in filenames:
@@ -40,6 +108,30 @@ def load_timedata(daystr, filenames, nbins=60, ndata=-1):
         ydata = y/np.max(y)
         data_list.append((times[:ndata], ydata[:ndata], title))
     return data_list
+
+
+def get_time_data(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1,
+                  filenames=None, datafile=DATA_DEFAULT):
+    import yaml
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    yaml_fin = os.path.join(basedir, datafile)
+    with open(yaml_fin, 'r') as stream:
+        try:
+            yaml_data = yaml.load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+    b, a = scipy.signal.butter(2, 0.3)# Para el filtrado (de ser necesario)
+    data_list = list()
+    # Hago los ajustes y guardo los parámetros ajustados
+    for tdata, ydata, title in load_timedata(daystr, filenames,
+                                             nbins=nbins, ndata=ndata):
+        if filtering:
+            ydata = scipy.signal.filtfilt(b, a, ydata)
+        result = df.robust_fit(tdata, ydata, model=model)
+        data_list.append((tdata, ydata, result))
+    return data_list
+
+
 
 def print_datainfo(daystr, filenames):
     basedir = os.path.join(DATA_FOLDER, daystr)
@@ -97,51 +189,6 @@ def load_multiple_spectra(daystr, datafile=DATA_DEFAULT):
     return spec_collection
 
 
-def get_time_data(daystr, nbins=2500, model='mixture', filtering=True, ndata=-1,
-                  filenames=None, datafile=DATA_DEFAULT):
-    """
-    """
-
-    import yaml
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, datafile)
-    with open(yaml_fin, 'r') as stream:
-        try:
-            yaml_data = yaml.load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    b, a = scipy.signal.butter(2, 0.3)# Para el filtrado (de ser necesario)
-    data_list = list()
-    # Hago los ajustes y guardo los parámetros ajustados
-    for tdata, ydata, title in load_timedata(daystr, filenames,
-                                             nbins=nbins, ndata=ndata):
-        if filtering:
-            ydata = scipy.signal.filtfilt(b, a, ydata)
-        result = df.robust_fit(tdata, ydata, model=model)
-        data_list.append((tdata, ydata, result))
-    return data_list
-
-
-def get_timesets(daystr, nbins=2500, model='mixture', filtering=True,
-                 ndata=-1, datafile=DATA_DEFAULT):
-    import yaml
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, datafile)
-    with open(yaml_fin, 'r') as stream:
-        try:
-            yaml_data = yaml.load(stream)
-            datasets = yaml_data['datasets']
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    datasets_list = list()
-    for key, filenames in datasets.iteritems():
-        datasets_list.append(get_time_data(daystr, nbins=nbins, model=model,
-                                           filtering=filtering, ndata=ndata,
-                                           filenames=filenames, datafile=datafile))
-    return datasets_list
-
 
 def get_powers(daystr, datafile=None):
     basedir = os.path.join(DATA_FOLDER, daystr)
@@ -176,9 +223,12 @@ def get_timepars(daystr=None, nbins=1200, model='double_neg', filtering=False,
     return np.array(a1_list), np.array(a2_list), np.array(ka_list), np.array(kUC_list)
 
 
-def load_data(daystr):
+def load_data(daystr, config_file=None):
     basedir = os.path.join(DATA_FOLDER, daystr)
-    yaml_fin = os.path.join(basedir, DATA_DEFAULT)
+    if config_file is not None:
+        yaml_fin = config_file
+    else:
+        yaml_fin = os.path.join(basedir, DATA_DEFAULT)
     config_dict = yaml.load(open(yaml_fin, 'r'))
     config = collections.namedtuple('config', config_dict.keys())
     cfg = config(*config_dict.values())
