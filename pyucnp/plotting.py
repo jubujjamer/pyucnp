@@ -11,16 +11,16 @@ import csv
 import itertools as it
 
 import matplotlib.pyplot as plt
-import matplotlib.colors
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.collections import PolyCollection, PatchCollection
-import matplotlib.patches as patches
-import matplotlib.cm as cm
-import colour.plotting as cplt
-import colour
+# import matplotlib.colors
+# from mpl_toolkits.mplot3d import Axes3D
+# from matplotlib.collections import PolyCollection, PatchCollection
+# import matplotlib.patches as patches
+# import matplotlib.cm as cm
+# import colour.plotting as cplt
+# import colour
 
 
-from pyucnp.fitting import fit_line, fit_power
+from pyucnp.fitting import fit_line, fit_power, robust_fit
 
 
 def wlen_to_rgb(wavelength, gamma=0.8):
@@ -75,7 +75,7 @@ def wlen_to_rgb(wavelength, gamma=0.8):
     return (R,G,B,A)
 
 
-def normalize_by_iss(tdecay, idecay, iss):
+def normalize(tdecay, idecay, iss=None, mode='iss'):
     """ Normalize a given lifetime curve area by the spectrum peak. Given the
     area A under the lifetime curve I(t) and its stationary spectrum peak, it's
     new value will be I(t)*Iss/A..
@@ -95,27 +95,19 @@ def normalize_by_iss(tdecay, idecay, iss):
         Time series and normalized decay curve.
 
     """
-    from scipy.integrate import simps
-    A = simps(idecay, tdecay)
-    return tdecay, idecay*iss/A
+    if mode == 'iss':
+        from scipy.integrate import simps
+        A = simps(idecay, tdecay)
+        inorm = idecay*iss/A
 
+    elif mode == 'maximum':
+        inorm = idecay/np.max(idecay)
 
-def setup_matplotlib():
-    """Sets text size and figure parameters.
+    elif mode == 'sum':
+        # from scipy.integrate import simps
+        inorm = idecay/sum(idecay)
 
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    matplotlib.rcParams.update({'font.size': 14})
-    matplotlib.rcParams['mathtext.fontset'] = 'custom'
-    matplotlib.rcParams['mathtext.rm'] = 'Bitstream Vera Sans'
-    matplotlib.rcParams['mathtext.it'] = 'Bitstream Vera Sans:italic'
-    matplotlib.rcParams['mathtext.bf'] = 'Bitstream Vera Sans:bold'
-    plt.rc('legend',**{'fontsize':14})
-    plt.rcParams['legend.numpoints'] = 1
+    return tdecay, inorm
 
 def annotate(ax, text, xytext):
     """ Anonotates a given axis at a given position.
@@ -138,19 +130,42 @@ def annotate(ax, text, xytext):
             textcoords='axes fraction', horizontalalignment='right', verticalalignment='top')
 
 
-def plot_idecays(tdecay, idecay_dict):
-    setup_matplotlib()
-    fig, (ax1) = plt.subplots(1, 1, figsize=[8, 4])
+def plot_idecays(tdecay, idecay_dict, wlen_list=None, plot_fit=False, ax=None):
+    """Short summary.
+
+    Parameters
+    ----------
+    tdecay : type
+        Description of parameter `tdecay`.
+    idecay_dict : type
+        Description of parameter `idecay_dict`.
+    wlen_list : type
+        Set this if you don't want to plot all wavelengths.
+    plot_fit : type
+        Description of parameter `plot_fit`.
+    ax : type
+        Description of parameter `ax`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    if ax is None:
+        ax = plt.gca()
     label_iter= iter(['%s nm' % wlen for wlen in idecay_dict.keys()])
     for key, idecay  in idecay_dict.items():
+        if key not in wlen_list:
+            continue
         label = next(label_iter)
-        ax1.plot(1E3*tdecay, idecay, color=wlen_to_rgb(key), marker='o', markersize=1.2)
-
-    ax1.set_ylabel("Intensity (norm.)")
-    ax1.set_xlabel("Tiempo (ms)")
-    ax1.legend(ncol=4, loc='upper right')
-    plt.tight_layout(pad=0., w_pad=0.5, h_pad=0.5)
-    plt.show()
+        color = wlen_to_rgb(key)
+        ax.plot(1E3*tdecay, idecay, color=color,
+                marker='o', markersize=3., linestyle='None', label=label)
+        if plot_fit:
+            result = robust_fit(tdecay, idecay, model='double_neg')
+            ax.plot(1E3*tdecay, result.best_fit, color='k',
+                    linestyle='--', linewidth=0.8)
 
 
 def plot_stationary(power_list, power_labels, wlen_list, filename=None):
@@ -173,7 +188,6 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         Description of returned object.
 
     """
-    setup_matplotlib()
     fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6], sharey=False)
     axiter = iter(fig.axes)
     for wlen in wlen_list:
@@ -202,8 +216,6 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
     plt.show()
 
 def plot_3d(spectrum_list, wavelength_list, filename=None):
-    setup_matplotlib()
-
     fig = plt.figure(figsize=[12,12])
     ax = fig.gca(projection='3d')
     verts = []
@@ -232,10 +244,7 @@ def plot_3d(spectrum_list, wavelength_list, filename=None):
         plt.savefig(filename, dpi=300)
     plt.show()
 
-
-
 def plot_spectrums(spectrum_list, filename=None):
-    setup_matplotlib()
     fig, (ax) = plt.subplots(1, 1, figsize=[8, 4])
     colors = iter([cm.hot(p*0.1) for p in range(len(spectrum_list))])
     for spectrum_dict in spectrum_list:
@@ -304,20 +313,11 @@ def cie(spectrum_list):
     ax = fig.add_subplot(111)
     patch = patches.PathPatch(path, facecolor='none', lw=1.5)
     ax.add_patch(patch)
-    # # Annotating the plot.
-    # plt.annotate('',
-    #                xy=xy,
-    #                xytext=(-50, 30),
-    #                textcoords='offset points',
-    #                arrowprops=dict(arrowstyle='->', connectionstyle='arc3, rad=-0.2'))
-
-    # Displaying the plot.
     cplt.render(
         standalone=True,
         limits=(-0.1, 0.9, -0.1, 0.9),
         x_tighten=True,
         y_tighten=True)
-
 
 def normalized_cie(ax, spectrum_dict):
     # fig =  cplt.chromaticity_diagram_plot_CIE1931(standalone=False)
@@ -364,3 +364,135 @@ def delayed_cie(idecay_dict):
     cplt.render(standalone=True, limits=(-0.1, 0.9, -0.1, 0.9), x_tighten=True,
                     y_tighten=True)
     plt.show()
+
+def plot_3d(spectrum_list, wavelength_list, filename=None):
+
+    fig = plt.figure(figsize=[12,12])
+    ax = fig.gca(projection='3d')
+    verts = []
+    zs = [s['label'] for s in spectrum_list]
+    colors = [cm.hot(p/5000.) for p in zs]
+    for spectrum_dict in spectrum_list:
+    #     ys = np.random.rand(len(x))
+        x = spectrum_dict['x']
+        y = spectrum_dict['y']
+        # x = spec_dict[z][0]
+        # y = spec_dict[z][1]
+        y[0], y[-1] = 0, 0
+        verts.append(list(zip(x, y)))
+
+    poly = PolyCollection(verts,  facecolors=colors)
+    poly.set_alpha(1.)
+    ax.add_collection3d(poly, zs=zs, zdir='y')
+    ax.set_xlabel('Long. de onda (nm)')
+    ax.set_xlim3d(350, 700)
+    ax.set_ylabel('Potencia incidente (U.A.)')
+    ax.set_ylim3d(0, 5000)
+    ax.set_zlabel('Potencia de salida (U.A.)')
+    ax.set_zlim3d(0, 5.5E7)
+    if filename:
+        plt.savefig(filename, dpi=300)
+    plt.show()
+
+def idecays3d(tdecay, idecay_dict, filename=None):
+
+    fig = plt.figure(figsize=[12,12])
+    ax = fig.gca(projection='3d')
+    zs = iter([float(w) for w in idecay_dict.keys()])
+    verts = list()
+    for key, idecay in idecay_dict.items():
+        wlen = next(zs)
+        x = 1E3*tdecay[:-50]
+        y = np.log10(idecay[:-50])
+        ax.plot(x,np.ones_like(x)*wlen, y, color=wlen_to_rgb(wlen))
+
+    ax.set_xlabel('Time (ms)')
+    # ax.set_xlim3d(0, 1.2)WSS
+    ax.set_ylabel('Wavelength (nm))')
+    ax.set_ylim3d(350, 700)
+    ax.set_zlabel('Intensity (A.U.)')
+    # ax.set_zlim3d(0, 5.5E3)
+    if filename:
+        plt.savefig(filename, dpi=300)
+    plt.show()
+
+def plot_fits(fit_dict):
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=[10, 7], sharex=True)
+    f_list = list()
+    kUC_list = list()
+    ka_list = list()
+    wlen_list = [float(w) for w in fit_dict.keys()]
+    for key, result in fit_dict.items():
+        a_ka = result.params['a1'].value
+        a_kuc = result.params['a2'].value
+        f_list.append(-a_ka/(-a_ka+a_kuc))
+        kUC_list.append(result.params['kUC'].value/1000)
+        ka_list.append(result.params['ka'].value/1000)
+    wlens = np.array(wlen_list)
+
+    bar_width = 2.5
+    ax1.bar(wlens+bar_width, f_list, bar_width, color='C0', edgecolor='k')
+    ax1.set_ylabel('f')
+    ax1.set_ylim([0.7, 1.05])
+    ax2.bar(wlens+bar_width, ka_list, bar_width, color = 'C1', edgecolor='k')
+    ax2.set_ylabel('ka (1/ms)')
+    ax3.bar(wlens+bar_width, kUC_list, bar_width, color = 'C2', edgecolor='k')
+    ax3.set_ylabel('kUC (1/ms)')
+    plt.subplots_adjust(hspace=0.)
+    plt.show()
+
+
+def plot_fits_v2(fit_dict, var='f', ax=None):
+    if ax is None:
+        ax = plt.gca()
+    f_list = list()
+    kUC_list = list()
+    ka_list = list()
+    wlen_list = [float(w) for w in fit_dict.keys()]
+    for key, result in fit_dict.items():
+        a_ka = result.params['a1'].value
+        a_kuc = result.params['a2'].value
+        f = -a_ka/(-a_ka+a_kuc)
+        f_list.append(-a_ka/(-a_ka+a_kuc))
+        if f < 0.99:
+            kUC_list.append(result.params['kUC'].value/1000)
+        else:
+            kUC_list.append(0)
+        ka_list.append(result.params['ka'].value/1000)
+    wlens = np.array(wlen_list)
+    bar_width = 2.5
+    if var == 'f':
+        bp = ax.bar(wlens+bar_width, f_list, bar_width,
+                    facecolor='C0', edgecolor='k')
+    elif var == 'ka':
+        bp = ax.bar(wlens+bar_width, ka_list, bar_width,
+                    facecolor = 'C1', edgecolor='k')
+    elif var == 'kUC':
+        bp = ax.bar(wlens+bar_width, kUC_list,
+                    bar_width, color = 'C2', edgecolor='k')
+    # ax3.set_ylabel('kUC (1/ms)')
+    # ax3.set_xlabel('Wavelength (nm)')
+    # plt.subplots_adjust(hspace=0.1)
+    # plt.show()
+    return bp
+
+def plot_mean_taus(tdecay, mtime_dict, ax=None):
+    if ax is None:
+        ax = plt.gca()
+    taus = np.array(list(mtime_dict.values()))
+    wlens = np.array(list(mtime_dict.keys()))
+    xvalues = np.arange(len(wlens))*5
+    bar_width = 3
+    barlist = ax.bar(xvalues+ bar_width, 1E3*taus, bar_width, edgecolor='k')
+    wlens_iter = iter(wlens)
+    for i in range(len(barlist)):
+        wlen = next(wlens_iter)
+        barlist[i].set_facecolor(wlen_to_rgb(wlen))
+    return barlist
+
+def plot_spectrum(lamdas, spectrum, ax=None):
+    if ax is None:
+        ax = plt.gca()
+
+    ax.plot(lamdas, spectrum)

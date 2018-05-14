@@ -14,19 +14,14 @@ import pandas as pd
 from . import fitting as df
 import yaml
 
-
 DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'specs.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'data.yaml'
 
-
-
 def UCNPEmission(object):
     def __init__(self):
         __all__ = ['__init__']
-
-
 
 def load_idecay(daystr, filename, nbins=60, ndata=-1, TS=6.4E-8):
     basedir = os.path.join(DATA_FOLDER, daystr)
@@ -42,6 +37,15 @@ def load_idecay(daystr, filename, nbins=60, ndata=-1, TS=6.4E-8):
     y = hist - np.mean(hist[-nbins//20: -1])
     ydata = y/np.max(y)
     return times, ydata
+
+def load_mean_times(daystr, filename, nbins=60, ndata=-1, TS=6.4E-8):
+    basedir = os.path.join(DATA_FOLDER, daystr)
+
+    data_fin = os.path.join(basedir, filename + '.npy')
+    text_fin = os.path.join(basedir, filename + '.txt')
+    title = filename
+    time_data = np.load(data_fin)*TS
+    return np.mean(time_data)
 
 
 def get_timesets(daystr, nbins=2500, model='mixture', filtering=True,
