@@ -11,6 +11,8 @@ import csv
 import itertools as it
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, MaxNLocator
+
 # import matplotlib.colors
 # from mpl_toolkits.mplot3d import Axes3D
 # from matplotlib.collections import PolyCollection, PatchCollection
@@ -450,6 +452,9 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
     kUC_list = list()
     ka_list = list()
     wlen_list = [float(w) for w in fit_dict.keys()]
+    wlens_iter = iter(wlen_list)
+    labels = ['DE' for wl in wlen_list]
+
     for key, result in fit_dict.items():
         a_ka = result.params['a1'].value
         a_kuc = result.params['a2'].value
@@ -460,39 +465,98 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
         else:
             kUC_list.append(0)
         ka_list.append(result.params['ka'].value/1000)
-    wlens = np.array(wlen_list)
-    bar_width = 2.5
+    xvalues = np.arange(len(wlen_list))
+    bar_width = 0.8
     if var == 'f':
-        bp = ax.bar(wlens+bar_width, f_list, bar_width,
-                    facecolor='C0', edgecolor='k')
+        bp = ax.bar(xvalues, f_list, bar_width)
+        f_array = np.array(f_list)
+        mono_ind = np.where(f_array>0.98)[0]
+        for i in mono_ind:
+            labels[int(i)] = 'ME'
     elif var == 'ka':
-        bp = ax.bar(wlens+bar_width, ka_list, bar_width,
-                    facecolor = 'C1', edgecolor='k')
+        bp = ax.bar(xvalues, ka_list, bar_width)
+    elif var == 'tau_a':
+        tau_a = [1/float(k) for k in ka_list]
+        bp = ax.bar(xvalues, tau_a, bar_width)
     elif var == 'kUC':
-        bp = ax.bar(wlens+bar_width, kUC_list,
+        bp = ax.bar(xvalues, kUC_list,
                     bar_width, color = 'C2', edgecolor='k')
-    # ax3.set_ylabel('kUC (1/ms)')
-    # ax3.set_xlabel('Wavelength (nm)')
-    # plt.subplots_adjust(hspace=0.1)
-    # plt.show()
+    for i in range(len(bp)):
+        wlen = next(wlens_iter)
+        bp[i].set_facecolor(wlen_to_rgb(wlen))
+        bp[i].set_edgecolor('k')
+    plt.sca(ax)
+    plt.xticks(xvalues+0.05, labels, rotation=90)
+    plt.yticks((0.0, 0.1, 0.2, 0.3))
+    ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
     return bp
 
-def plot_mean_taus(tdecay, mtime_dict, ax=None):
+
+def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
     if ax is None:
         ax = plt.gca()
     taus = np.array(list(mtime_dict.values()))
     wlens = np.array(list(mtime_dict.keys()))
-    xvalues = np.arange(len(wlens))*5
-    bar_width = 3
-    barlist = ax.bar(xvalues+ bar_width, 1E3*taus, bar_width, edgecolor='k')
+    xvalues = np.arange(len(wlens))
+    bar_width = .8
+    taus_ms = 1E3*taus
+    barlist = ax.bar(xvalues, taus_ms, bar_width, edgecolor='k')
     wlens_iter = iter(wlens)
+    if labels:
+        def format_fn(tick_val, tick_pos):
+            if int(tick_val) in xvalues:
+                return labels[int(tick_val)]
+            else:
+                return ''
+        # Top ticks
+        axT = ax.twiny()
+        axT.tick_params(direction = 'in')
+        plt.sca(axT)
+        wlens = np.array(labels)
+        xticks_peaks = (wlens-365)/315
+        plt.xticks(xticks_peaks)
+        ax.set_xlim([-0.9, 18])
+        timeax_lims = ax.get_xlim()
+        bars_postions = np.linspace(0+0.048, 1-0.058, len(xvalues))
+        for tstart, tend, dy, wlen in zip(xticks_peaks, bars_postions, taus_ms, wlens):
+            dx = tend-tstart
+            # dy = -np.sqrt(0.1-dx**2)
+            dy = -(0.4-dy)
+            print(tstart, tend, dx, dy)
+            linestyle = (0, (3, 10, 1, 10))
+            axT.arrow(tstart, 0.4, dx, dy, head_width=0.0, fc=None, ec=wlen_to_rgb(wlen),
+            linestyle='dotted')
+        axT.tick_params(labeltop=False)
+        # Bottom ticks
+        plt.sca(ax)
+        plt.xticks(xvalues+0.05, labels, rotation=90)
+        plt.yticks((0.0, 0.1, 0.2, 0.3))
+    ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    # ax.set_xticks(xvalues, rotation=90)
+    # ax.xaxis.set_major_formatter(FuncFormatter(format_fn))
+    # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # ax.set_xticks(ind, tuple(labels))
     for i in range(len(barlist)):
         wlen = next(wlens_iter)
         barlist[i].set_facecolor(wlen_to_rgb(wlen))
-    return barlist
+        barlist[i].set_edgecolor('k')
+    return xvalues, barlist
 
-def plot_spectrum(lamdas, spectrum, ax=None):
+def plot_spectrum(lambdas, spectrum, ax=None):
     if ax is None:
         ax = plt.gca()
+    spectrum /= max(spectrum)
+    ax.plot(lambdas, spectrum)
 
-    ax.plot(lamdas, spectrum)
+    def format_fn(tick_val, tick_pos):
+        if int(tick_val) in lambdas:
+            print(tick_val)
+            return labels[int(tick_val)]
+        else:
+            return ''
+    ax.set_ylim([0, 1])
+    ax.set_xlim([365, 680])
+    ax.set_frame_on(False)
+    plt.sca(ax)
+    plt.xticks([])
+    plt.yticks([])
