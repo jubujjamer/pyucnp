@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 # import matplotlib.colors
-# from mpl_toolkits.mplot3d import Axes3D
-# from matplotlib.collections import PolyCollection, PatchCollection
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.collections import PolyCollection, PatchCollection
 # import matplotlib.patches as patches
 # import matplotlib.cm as cm
 # import colour.plotting as cplt
@@ -75,6 +75,12 @@ def wlen_to_rgb(wavelength, gamma=0.8):
         G = 0.0
         B = 0.0
     return (R,G,B,A)
+
+def normalize_spectrum(lambdas, spectrum):
+
+    background = np.mean(spectrum[-10:])
+    spectrum_corr = spectrum - background
+    return lambdas, spectrum_corr
 
 
 def normalize(tdecay, idecay, iss=None, mode='iss'):
@@ -217,49 +223,51 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         plt.savefig(filename)
     plt.show()
 
-def plot_3d(spectrum_list, wavelength_list, filename=None):
-    fig = plt.figure(figsize=[12,12])
-    ax = fig.gca(projection='3d')
-    verts = []
-    zs = [s['label'] for s in spectrum_list]
-    colors = [cm.hot(p/5000.) for p in zs]
-    for spectrum_dict in spectrum_list:
-    #     ys = np.random.rand(len(x))
-        x = spectrum_dict['x']
-        y = spectrum_dict['y']
-        # x = spec_dict[z][0]
-        # y = spec_dict[z][1]
-        y[0], y[-1] = 0, 0
-        verts.append(list(zip(x, y)))
+#
+# def plot_3d(spectrum_list, wavelength_list, ax=None, filename=None):
+#
+#     # fig = plt.figure(figsize=[12,12])
+#     ax = fig.gca(projection='3d')
+#     verts = []
+#     zs = [s['label'] for s in spectrum_list]
+#     colors = [cm.hot(p/5000.) for p in zs]
+#     for spectrum_dict in spectrum_list:
+#     #     ys = np.random.rand(len(x))
+#         x = spectrum_dict['x']
+#         y = spectrum_dict['y']
+#         # x = spec_dict[z][0]
+#         # y = spec_dict[z][1]
+#         y[0], y[-1] = 0, 0
+#         verts.append(list(zip(x, y)))
+#
+#     poly = PolyCollection(verts,  facecolors=colors)
+#     poly.set_alpha(1.)
+#     ax.add_collection3d(poly, zs=zs, zdir='y')
+#
+#     ax.set_xlabel('Long. de onda (nm)')
+#     ax.set_xlim3d(350, 700)
+#     ax.set_ylabel('Potencia incidente (U.A.)')
+#     ax.set_ylim3d(0, 5000)
+#     ax.set_zlabel('Potencia de salida (U.A.)')
+#     ax.set_zlim3d(0, 5.5E7)
+#     if filename:
+#         plt.savefig(filename, dpi=300)
+#     plt.show()
 
-    poly = PolyCollection(verts,  facecolors=colors)
-    poly.set_alpha(1.)
-    ax.add_collection3d(poly, zs=zs, zdir='y')
+def plot_spectrums(spectrum_list, filename=None, ax=None):
 
-    ax.set_xlabel('Long. de onda (nm)')
-    ax.set_xlim3d(350, 700)
-    ax.set_ylabel('Potencia incidente (U.A.)')
-    ax.set_ylim3d(0, 5000)
-    ax.set_zlabel('Potencia de salida (U.A.)')
-    ax.set_zlim3d(0, 5.5E7)
-    if filename:
-        plt.savefig(filename, dpi=300)
-    plt.show()
-
-def plot_spectrums(spectrum_list, filename=None):
-    fig, (ax) = plt.subplots(1, 1, figsize=[8, 4])
-    colors = iter([cm.hot(p*0.1) for p in range(len(spectrum_list))])
+    import matplotlib.cm as cm
+    if ax is None:
+        ax = plt.gca()
+    colors = iter([cm.hot(p) for p in np.linspace(0.1, 0.7, len(spectrum_list))])
     for spectrum_dict in spectrum_list:
         x = spectrum_dict['x']
         y = spectrum_dict['y']
         y /= np.max(y)
         ax.plot(x, y, color=next(colors))
-    ax.set_xlabel('Long. de onda (nm)')
-    ax.set_ylabel('Potencia incidente (U.A.)')
+
     if filename:
         plt.savefig(filename)
-    plt.show()
-
 
 def plot_times(wavelengths, datasets_list, cfg):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[8, 10])
@@ -367,19 +375,17 @@ def delayed_cie(idecay_dict):
                     y_tighten=True)
     plt.show()
 
-def plot_3d(spectrum_list, wavelength_list, filename=None):
-
-    fig = plt.figure(figsize=[12,12])
-    ax = fig.gca(projection='3d')
+def plot_3d(spectrum_list, wavelength_list, ax=None, filename=None):
+    import matplotlib.cm as cm
+    if ax is None:
+        ax = plt.gca(projection='3d')
+    ax = plt.gca(projection='3d')
     verts = []
     zs = [s['label'] for s in spectrum_list]
-    colors = [cm.hot(p/5000.) for p in zs]
+    colors = [cm.hot(p/8000.) for p in zs]
     for spectrum_dict in spectrum_list:
-    #     ys = np.random.rand(len(x))
         x = spectrum_dict['x']
         y = spectrum_dict['y']
-        # x = spec_dict[z][0]
-        # y = spec_dict[z][1]
         y[0], y[-1] = 0, 0
         verts.append(list(zip(x, y)))
 
@@ -394,7 +400,19 @@ def plot_3d(spectrum_list, wavelength_list, filename=None):
     ax.set_zlim3d(0, 5.5E7)
     if filename:
         plt.savefig(filename, dpi=300)
-    plt.show()
+
+# def plot_3d(spectrum_list, wavelength_list, ax=None, filename=None):
+#     # from mpl_toolkits.mplot3d import axes3d, Axes3D #<-- Note the capitalization!
+#     # fig = plt.figure()
+#     #
+#     # ax = Axes3D(fig) #<-- Note the difference from your original code...
+#     #
+#     # X, Y, Z = axes3d.get_test_data(0.05)
+#     # cset = ax.contour(X, Y, Z, 16, extend3d=True)
+#     # ax.clabel(cset, fontsize=9, inline=1)
+#     import matplotlib
+#     print(matplotlib.projections.get_projection_names())
+#
 
 def idecays3d(tdecay, idecay_dict, filename=None):
 
@@ -542,21 +560,30 @@ def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
         barlist[i].set_edgecolor('k')
     return xvalues, barlist
 
-def plot_spectrum(lambdas, spectrum, ax=None):
+
+def plot_spectrum(lambdas=None, spectrum=None, ax=None, **kwargs):
+
     if ax is None:
         ax = plt.gca()
-    spectrum /= max(spectrum)
-    ax.plot(lambdas, spectrum)
 
     def format_fn(tick_val, tick_pos):
         if int(tick_val) in lambdas:
-            print(tick_val)
             return labels[int(tick_val)]
         else:
             return ''
-    ax.set_ylim([0, 1])
-    ax.set_xlim([365, 680])
-    ax.set_frame_on(False)
-    plt.sca(ax)
-    plt.xticks([])
-    plt.yticks([])
+
+    for name, value in kwargs.items():
+        if name is 'framed':
+            ax.set_frame_on(value)
+            if value is False:
+                plt.sca(ax)
+                plt.xticks([])
+                plt.yticks([])
+        if name is 'normalized':
+            if value is True:
+                spectrum /= max(spectrum)
+                ax.set_ylim([0, 1])
+        if name is 'xlim':
+            ax.set_xlim(value)
+
+        ax.plot(lambdas, spectrum)
