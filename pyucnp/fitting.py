@@ -107,7 +107,6 @@ def fit_line(x, y):
     params.add('b', value=1.)
     params.add('m', value=1.)
     result = lmfit.minimize(residual, params, args=(x, y.reshape(1, len(y))))
-
     return result.params
 
 def fit_power(x, y):

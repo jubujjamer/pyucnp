@@ -138,7 +138,8 @@ def annotate(ax, text, xytext):
             textcoords='axes fraction', horizontalalignment='right', verticalalignment='top')
 
 
-def plot_idecays(tdecay, idecay_dict, wlen_list=None, plot_fit=False, ax=None):
+def plot_idecays(tdecay, idecay_dict, wlen_list=None, plot_fit=False,
+                ax=None, mode=None):
     """Short summary.
 
     Parameters
@@ -162,13 +163,20 @@ def plot_idecays(tdecay, idecay_dict, wlen_list=None, plot_fit=False, ax=None):
     """
     if ax is None:
         ax = plt.gca()
-    label_iter= iter(['%s nm' % wlen for wlen in idecay_dict.keys()])
+    label_iter= iter(['%s nm' % wlen for wlen in wlen_list])
     for key, idecay  in idecay_dict.items():
         if key not in wlen_list:
             continue
         label = next(label_iter)
         color = wlen_to_rgb(key)
-        ax.plot(1E3*tdecay, idecay, color=color,
+        if mode == 'residues':
+            result = robust_fit(tdecay, idecay, model='double_neg')
+            ydata = result.residual
+            ax.plot(1E3*tdecay, ydata, color=color,
+                marker='o', markersize=3., label=label)
+        else:
+            ydata = idecay
+        ax.plot(1E3*tdecay, ydata, color=color,
                 marker='o', markersize=3., linestyle='None', label=label)
         if plot_fit:
             result = robust_fit(tdecay, idecay, model='double_neg')
@@ -587,3 +595,27 @@ def plot_spectrum(lambdas=None, spectrum=None, ax=None, **kwargs):
             ax.set_xlim(value)
 
         ax.plot(lambdas, spectrum)
+
+def plot_log_power(power_list, peak_amps, wlen, ax=None):
+    if ax is None:
+        ax = plt.gca()
+    power_mw = np.array(power_list)
+    log_power = np.log10(power_mw)
+    log_amps = np.log10(peak_amps[wlen])
+    print(wlen, power_mw)
+    ax.plot(log_power, log_amps, color=wlen_to_rgb(wlen),
+            marker='o', markersize=2.)
+
+def add_linear_fitting(lambdas, spectrum_list, ax=None):
+
+    import matplotlib.cm as cm
+    if ax is None:
+        ax = plt.gca()
+    for spectrum_dict in spectrum_list:
+        x = spectrum_dict['x']
+        y = spectrum_dict['y']
+        y /= np.max(y)
+        ax.plot(x, y, color=next(colors))
+
+    if filename:
+        plt.savefig(filename)
