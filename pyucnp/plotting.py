@@ -78,8 +78,8 @@ def wlen_to_rgb(wavelength, gamma=0.8):
 
 def normalize_spectrum(lambdas, spectrum):
 
-    background = np.mean(spectrum[-10:])
-    spectrum_corr = spectrum - background
+    background = np.mean(spectrum[0:10])
+    spectrum_corr = spectrum - background + 1
     return lambdas, spectrum_corr
 
 
@@ -193,7 +193,7 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         Description of parameter `power_sweep_list`.
     power_labels : type
         Description of parameter `power_labels`.
-    wavelength_list : type
+    wavelength_list : typenormalize_spectrum
         Description of parameter `wavelength_list`.
     filename : type
         Description of parameter `filename`.
@@ -204,7 +204,11 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         Description of returned object.
 
     """
-    fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6], sharey=False)
+    fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6],
+                             sharex=True, sharey=False)
+    # ax_common = fig.add_subplot(111)    # The big subplot
+    # ax_common.set_ylabel('Emission power (log(), U.A.)')
+
     axiter = iter(fig.axes)
     for wlen in wlen_list:
         ax = next(axiter)
@@ -218,15 +222,22 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
                 markersize=4.5, linewidth = .0)
         ax.plot(x, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
         ax.plot(x, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
-        # ax.set_title('$\\lambda = $%s nm' % wlen)
-        annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.8, .35))
-        annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.8, .2))
+        annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.9, .45))
+        annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.9, .25))
         # ax.legend(bbox_to_anchor=(0.35, 0.15), loc=2, borderaxespad=0.)
-        ax.set_xlim(-30, -6)
-        print(np.max(y))
-        ax.set_ylim(np.min(y), np.max(y))
-        ax.set_xlabel('Excitation power (dBm)')
-        ax.set_ylabel('Emission power (log(), U.A.)')
+        # ax.set_xlim(-30, -6)
+        ax.set_ylim(np.min(y)-5, np.max(y)+5)
+        ax.set_xlabel('Log Excitation ($mW/cm^2$)')
+    plt.sca(ax)
+    p_to_dens = (4.35/0.008)**2/1000
+    print(power_labels[0]*p_to_dens)
+    xvalues = x[::5]
+    labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
+    labels = labels[::5]
+    plt.xticks(xvalues, labels)
+    # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+
+    axes[0].set_ylabel('Emitting power (log(), U.A.)')
     if filename:
         plt.savefig(filename)
     plt.show()
@@ -262,20 +273,43 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
 #         plt.savefig(filename, dpi=300)
 #     plt.show()
 
-def plot_spectrums(spectrum_list, filename=None, ax=None):
+def plot_spectrums(spectrum_list, filename=None, ax=None, normalize=True):
 
     import matplotlib.cm as cm
     if ax is None:
         ax = plt.gca()
-    colors = iter([cm.hot(p) for p in np.linspace(0.1, 0.7, len(spectrum_list))])
+    colors = iter([cm.afmhot(p) for p in np.linspace(0.05, 0.5, len(spectrum_list))])
     for spectrum_dict in spectrum_list:
         x = spectrum_dict['x']
         y = spectrum_dict['y']
-        y /= np.max(y)
-        ax.plot(x, y, color=next(colors))
+        if normalize:
+            y /= np.max(y)
+        ax.plot(x, y, color=next(colors), linewidth=0.8)
 
     if filename:
         plt.savefig(filename)
+
+def plot_efficiencies(spectrum_list, band_centers=[400, 530, 660], ax=None):
+    import matplotlib.cm as cm
+    if ax is None:
+        ax = plt.gca()
+    colors = iter([cm.afmhot(p) for p in np.linspace(0.05, 0.6, len(spectrum_list))])
+
+    for spectrum_dict in spectrum_list:
+        for bc in band_centers:
+            pind = int(np.where(x == peak)[0])
+            peak_amp = simps(y[pind-5:pind+5])
+            peak_amps[peak].append(peak_amp)
+
+    # for spectrum_dict in spectrum_list:
+    #     x = spectrum_dict['x']
+    #     y = spectrum_dict['y']
+    #     y /= np.max(y)
+    #     ax.plot(x, y, color=next(colors), linewidth=0.8)
+
+    if filename:
+        plt.savefig(filename)
+
 
 def plot_times(wavelengths, datasets_list, cfg):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[8, 10])
@@ -494,8 +528,8 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
     xvalues = np.arange(len(wlen_list))
     bar_width = 0.8
     if var == 'f':
-        bp = ax.bar(xvalues, f_list, bar_width)
         f_array = np.array(f_list)
+        bp = ax.bar(xvalues, f_array, bar_width)
         mono_ind = np.where(f_array>0.98)[0]
         for i in mono_ind:
             labels[int(i)] = 'ME'
@@ -505,8 +539,10 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
         tau_a = [1/float(k) for k in ka_list]
         bp = ax.bar(xvalues, tau_a, bar_width)
     elif var == 'kUC':
-        bp = ax.bar(xvalues, kUC_list,
-                    bar_width, color = 'C2', edgecolor='k')
+        bp = ax.bar(xvalues, kUC_list, bar_width)
+    elif var == 'tau_ETU':
+        tau_ETU = [1/float(k) for k in kUC_list]
+        bp = ax.bar(xvalues, tau_ETU, bar_width)
     for i in range(len(bp)):
         wlen = next(wlens_iter)
         bp[i].set_facecolor(wlen_to_rgb(wlen))
@@ -517,6 +553,53 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
     ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
     return bp
 
+
+def plot_taus(fit_dict, axes=None):
+    if axes is None:
+        ax = plt.gca()
+    f_list = list()
+    kUC_list = list()
+    ka_list = list()
+    tau_ETU = list()
+
+    wlen_list = [float(w) for w in fit_dict.keys()]
+    wlens_iter = iter(wlen_list)
+    labels = ['%i' % wl for wl in wlen_list]
+
+    for key, result in fit_dict.items():
+        a_ka = result.params['a1'].value
+        a_kuc = result.params['a2'].value
+        f = -a_ka/(-a_ka+a_kuc)
+        f_list.append(-a_ka/(-a_ka+a_kuc))
+        if f < 0.99:
+            kUC_list.append(result.params['ka'].value/1000)
+        else:
+            kUC_list.append(0)
+        ka_list.append(result.params['kUC'].value/1000)
+    xvalues = np.arange(len(wlen_list))
+    bar_width = 0.8
+
+    tau_a = [1/float(k) for k in ka_list]
+    bpa = axes[0].bar(xvalues, tau_a, bar_width)
+    for k in kUC_list:
+        if k != 0:
+            tau_ETU.append(1/float(k))
+        else:
+            tau_ETU.append(0)
+    bpb = axes[1].bar(xvalues, tau_ETU, bar_width)
+    for ax in axes:
+        wlens_iter = iter(wlen_list)
+        for i in range(len(bpa)):
+            wlen = next(wlens_iter)
+            bpa[i].set_facecolor(wlen_to_rgb(wlen))
+            bpa[i].set_edgecolor('k')
+            bpb[i].set_facecolor(wlen_to_rgb(wlen))
+            bpb[i].set_edgecolor('k')
+            plt.sca(ax)
+            plt.xticks(xvalues+0.05, labels, rotation=90)
+            # plt.yticks((0.0, 0.1, 0.2))
+            ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    return
 
 def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
     if ax is None:
@@ -602,9 +685,10 @@ def plot_log_power(power_list, peak_amps, wlen, ax=None):
     power_mw = np.array(power_list)
     log_power = np.log10(power_mw)
     log_amps = np.log10(peak_amps[wlen])
-    print(wlen, power_mw)
+    # log_amps -= log_amps[-1]
+    print('For %s' % wlen, peak_amps[wlen])
     ax.plot(log_power, log_amps, color=wlen_to_rgb(wlen),
-            marker='o', markersize=2.)
+            marker='o', markersize=1.2)
 
 def add_linear_fitting(lambdas, spectrum_list, ax=None):
 

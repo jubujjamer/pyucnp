@@ -82,7 +82,7 @@ def fit_exponential(tdata, ydata, init_params=None, model='single'):
 def robust_fit(tdata, ydata, init_params=None, model='single'):
     a1_list = np.arange(0, 1.2, .2)
     a2_list = np.arange(-1.2, 0, .2)
-    kUC_list = np.arange(0, 5E5, 500E4)
+    kUC_list = np.arange(1E4, 1E5, 500E4)
     ka_list = np.arange(0, 1E4, 500E3)
     # ka_list = np.arange(0, -1E5, -500E3)
     init_iter = it.product(a1_list, a2_list, kUC_list, ka_list)
