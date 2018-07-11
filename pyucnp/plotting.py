@@ -567,15 +567,26 @@ def plot_taus(fit_dict, axes=None):
     labels = ['%i' % wl for wl in wlen_list]
 
     for key, result in fit_dict.items():
-        a_ka = result.params['a1'].value
-        a_kuc = result.params['a2'].value
-        f = -a_ka/(-a_ka+a_kuc)
-        f_list.append(-a_ka/(-a_ka+a_kuc))
-        if f < 0.99:
-            kUC_list.append(result.params['ka'].value/1000)
-        else:
-            kUC_list.append(0)
-        ka_list.append(result.params['kUC'].value/1000)
+        if(result.model.name == 'double_exponential'):
+            a_ka = result.params['a1'].value
+            a_kuc = result.params['a2'].value
+            f = a_ka/(a_ka+a_kuc)
+            f_list.append(a_ka/(a_ka+a_kuc))
+            if f < 0.95:
+                kuc = result.params['kUC'].value/1000
+            else:
+                kuc = 0
+            kUC_list.append(kuc)
+            ka = result.params['ka'].value/1000
+            ka_list.append(ka)
+        elif(result.model.name == 'exponential'):
+            a_ka = result.params['a1'].value
+            f = 1
+            f_list.append(f)
+            ka = result.params['ka'].value/1000
+            ka_list.append(ka)
+        print('Fitted parameters for:  %.2f nm' %  key)
+        print(result.fit_report())
     xvalues = np.arange(len(wlen_list))
     bar_width = 0.8
 
