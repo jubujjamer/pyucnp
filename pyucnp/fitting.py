@@ -114,6 +114,56 @@ def robust_fit(tdata, ydata, init_params=None, model='single'):
             if result.chisqr < chisq_min:
                 chisq_min = result.chisqr
                 r_min = result
+    r_min.conf_interval()
+    return r_min
+
+
+def robust_best_fit(tdata, ydata, init_params=None, model='single'):
+    a1_list = np.arange(0, 1.2, .2)
+    a2_list = np.arange(0, 1.2, .2)
+    kUC_list = np.arange(1E4, 1E5, 500E4)
+    ka_list = np.arange(0, 1E4, 500E3)
+    # ka_list = np.arange(0, -1E5, -500E3)
+    init_iter = it.product(a1_list, a2_list, kUC_list, ka_list)
+    chisq_min = np.inf
+    r_min = None
+    fitted_ok = True
+    for init in init_iter:
+        result = fit_exponential(tdata, ydata, init_params=init, model=model)
+        if result.chisqr < chisq_min:
+            chisq_min = result.chisqr
+            r_min_double = result
+
+    init_iter = it.product(a1_list, ka_list)
+    chisq_min = np.inf
+    r_min = None
+    for init in init_iter:
+        # init_params = [.8, .9, 3E3, -8E4]
+        result = fit_exponential(tdata, ydata, init_params=init, model='single')
+        if result.chisqr < chisq_min:
+            chisq_min = result.chisqr
+            r_min_simple = result
+    # print('Ajuste doble exponencial')
+    # print(r_min_double.fit_report())
+    # print('Ajuste simple exponencial')
+    # print(r_min_simple.fit_report())
+
+    print('Aic double: %.1f simple: %.1f' % (r_min_double.aic, r_min_simple.aic))
+    print('Bayes double: %.1f simple: %.1f' % (r_min_double.bic, r_min_simple.bic))
+
+    if r_min_simple.aic < r_min_double.aic:
+        print('Choose simple model')
+        print(r_min_simple.fit_report())
+    else:
+        print('Choose double exponential model')
+        print(r_min_double.fit_report())
+
+    if r_min_double.covar is not None:
+        sumcovar = sum(r_min_double.covar.ravel())
+        print('Sumcovar: ', np.log(sumcovar))
+    else:
+        print('Covariance not calculated')
+    # r_min.conf_interval()
     return r_min
 
 

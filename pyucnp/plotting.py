@@ -557,6 +557,14 @@ def plot_fits_v2(fit_dict, var='f', ax=None):
 def plot_taus(fit_dict, axes=None):
     if axes is None:
         ax = plt.gca()
+
+    parameters_dict = {'a1': [], 'a1err': [],
+                       'a2': [], 'a2err': [],
+                       'ka': [], 'kaerr': [],
+                       'kuc': [], 'kucerr': [],
+                       'f': [], 'ferr': [],
+                       'tau_a:': [], 'tau_aerr:': [],
+                       'tau_etu:': [], 'tau_etuerr:': []}
     f_list = list()
     kUC_list = list()
     ka_list = list()
@@ -567,37 +575,40 @@ def plot_taus(fit_dict, axes=None):
     labels = ['%i' % wl for wl in wlen_list]
 
     for key, result in fit_dict.items():
-        if(result.model.name == 'double_exponential'):
+        if(result.model.name == 'Model(double_exponential)'):
             a_ka = result.params['a1'].value
             a_kuc = result.params['a2'].value
             f = a_ka/(a_ka+a_kuc)
-            f_list.append(a_ka/(a_ka+a_kuc))
+            parameters_dict['f'].append(a_ka/(a_ka+a_kuc))
             if f < 0.95:
                 kuc = result.params['kUC'].value/1000
             else:
                 kuc = 0
-            kUC_list.append(kuc)
+            parameters_dict['kuc'].append(kuc)
             ka = result.params['ka'].value/1000
-            ka_list.append(ka)
-        elif(result.model.name == 'exponential'):
+            parameters_dict['ka'].append(ka)
+        elif(result.model.name == 'Model(exponential)'):
             a_ka = result.params['a1'].value
             f = 1
-            f_list.append(f)
+            parameters_dict['f'].append(f)
             ka = result.params['ka'].value/1000
-            ka_list.append(ka)
-        print('Fitted parameters for:  %.2f nm' %  key)
+            parameters_dict['ka'].append(ka)
+            parameters_dict['kuc'].append(np.inf)
+        # print('Fitted parameters for:  %.2f nm' %  key)
+        # print(result.ci_out)
         print(result.fit_report())
     xvalues = np.arange(len(wlen_list))
     bar_width = 0.8
 
-    tau_a = [1/float(k) for k in ka_list]
+    tau_a = [1/float(k) for k in parameters_dict['ka']]
     bpa = axes[0].bar(xvalues, tau_a, bar_width)
-    for k in kUC_list:
+    for k in parameters_dict['kuc']:
         if k != 0:
             tau_ETU.append(1/float(k))
         else:
             tau_ETU.append(0)
     bpb = axes[1].bar(xvalues, tau_ETU, bar_width)
+
     for ax in axes:
         wlens_iter = iter(wlen_list)
         for i in range(len(bpa)):
@@ -661,6 +672,13 @@ def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
         barlist[i].set_facecolor(wlen_to_rgb(wlen))
         barlist[i].set_edgecolor('k')
     return xvalues, barlist
+
+
+def review_results(fit_dict, axes=None):
+    if axes is None:
+        ax = plt.gca()
+    return None
+
 
 
 def plot_spectrum(lambdas=None, spectrum=None, ax=None, **kwargs):
