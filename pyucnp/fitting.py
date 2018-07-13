@@ -104,7 +104,6 @@ def robust_fit(tdata, ydata, init_params=None, model='single'):
         fitted_ok = False
 
     if not fitted_ok:
-        print('nofitted')
         init_iter = it.product(a1_list, ka_list)
         chisq_min = np.inf
         r_min = None
@@ -118,7 +117,9 @@ def robust_fit(tdata, ydata, init_params=None, model='single'):
     return r_min
 
 
-def robust_best_fit(tdata, ydata, init_params=None, model='single'):
+def robust_best_fit(tdata, ydata, init_params=None, model='single', criterion='F-test'):
+    from scipy.stats import f
+
     a1_list = np.arange(0, 1.2, .2)
     a2_list = np.arange(0, 1.2, .2)
     kUC_list = np.arange(1E4, 1E5, 500E4)
@@ -144,27 +145,107 @@ def robust_best_fit(tdata, ydata, init_params=None, model='single'):
             chisq_min = result.chisqr
             r_min_simple = result
     # print('Ajuste doble exponencial')
-    # print(r_min_double.fit_report())
-    # print('Ajuste simple exponencial')
-    # print(r_min_simple.fit_report())
 
-    print('Aic double: %.1f simple: %.1f' % (r_min_double.aic, r_min_simple.aic))
-    print('Bayes double: %.1f simple: %.1f' % (r_min_double.bic, r_min_simple.bic))
 
-    if r_min_simple.aic < r_min_double.aic:
-        print('Choose simple model')
-        print(r_min_simple.fit_report())
+    # F-test calculation
+    RSS1 = r_min_simple.chisqr
+    RSS2 = r_min_double.chisqr
+    p1 = len(r_min_simple.params)
+    p2 = len(r_min_double.params)
+    n = r_min_simple.ndata
+    numF = (RSS1-RSS2)/(p2-p1)
+    denF = RSS2/(n-p2)
+    F = numF/denF
+
+    dfn = p2-p1
+    dfd = n-p2
+    p = (1-0.95)
+    Flimit = f.ppf(0.95, dfn, dfd)
+
+    keep_single_model = False
+    if criterion == 'F-test':
+        keep_single_model = F<Flimit
+    if criterion == 'aic':
+        keep_single_model = r_min_simple.aic < r_min_double.aic
+    if criterion == 'bic':
+        keep_single_model = r_min_simple.bic < r_min_double.bic
+
+    # print('Aic double: %.1f simple: %.1f' % (r_min_double.aic, r_min_simple.aic))
+    # print('Bayes double: %.1f simple: %.1f' % (r_min_double.bic, r_min_simple.bic))
+    # print('F-test simple model rejected: %r. p: %.2f' % (F>Flimit, p))
+
+    if keep_single_model:
+        print('Choose simple model according to %s' % criterion)
+        # print(r_min_simple.fit_report())
+        r_min_simple.conf_interval()
+        return r_min_simple
     else:
-        print('Choose double exponential model')
-        print(r_min_double.fit_report())
-
-    if r_min_double.covar is not None:
-        sumcovar = sum(r_min_double.covar.ravel())
-        print('Sumcovar: ', np.log(sumcovar))
-    else:
-        print('Covariance not calculated')
-    # r_min.conf_interval()
+        print('Choose double exponential model according to %s' % criterion)
+        # print(r_min_double.fit_report())
+        r_min_double.conf_interval()
+        return r_min_double
+    # if r_min_double.covar is not None:
+    #     sumcovar = sum(r_min_double.covar.ravel())
+    #     print('Sumcovar: ', np.log(sumcovar))
+    #     r_min_double.conf_interval()
+    #     return r_min_double
+    # else:
+    #     print('Covariance not calculated')
+    # # r_min.conf_interval()
     return r_min
+
+
+def robust_ftest(tdata, ydata, init_params=None, model='single'):
+    from scipy.stats import f
+
+    a1_list = np.arange(0, 1.2, .2)
+    a2_list = np.arange(0, 1.2, .2)
+    kUC_list = np.arange(1E4, 1E5, 500E4)
+    ka_list = np.arange(0, 1E4, 500E3)
+    # ka_list = np.arange(0, -1E5, -500E3)
+    init_iter = it.product(a1_list, a2_list, kUC_list, ka_list)
+    chisq_min = np.inf
+    r_min = None
+    fitted_ok = True
+    for init in init_iter:
+        result = fit_exponential(tdata, ydata, init_params=init, model=model)
+        if result.chisqr < chisq_min:
+            chisq_min = result.chisqr
+            r_min_double = result
+
+    init_iter = it.product(a1_list, ka_list)
+    chisq_min = np.inf
+    r_min = None
+    for init in init_iter:
+        result = fit_exponential(tdata, ydata, init_params=init, model='single')
+        if result.chisqr < chisq_min:
+            chisq_min = result.chisqr
+            r_min_simple = result
+    # print('Ajuste doble exponencial')
+
+    RSS1 = r_min_simple.chisqr
+    RSS2 = r_min_double.chisqr
+    p1 = len(r_min_simple.params)
+    p2 = len(r_min_double.params)
+    n = r_min_simple.ndata
+    numF = (RSS1-RSS2)/(p2-p1)
+    denF = RSS2/(n-p2)
+    F = numF/denF
+    print(RSS1, p1)
+    print('ndata: %.1f nfree: %.1f' % (n, r_min_simple.nfree))
+    print('RSS1: %.4f RSS2: %.4f' % (RSS1, RSS2))
+    print('F: %.8f' % (F))
+
+    dfn = p2-p1
+    dfd = n-p2
+    p = (1-0.95)
+    Flimit = f.ppf(0.95, dfn, dfd)
+    # f.cdf(x, dfn, dfd, loc=0, scale=1)
+    # print('FM', f.ppf(0.95, dfn, dfd))
+    # print('Fm', f.ppf(0.05, dfn, dfd))
+    print('F-test simple model rejected: %r. p: %.2f' % (F>Flimit, p))
+
+    return r_min_simple
 
 
 def fit_line(x, y):

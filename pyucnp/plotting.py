@@ -595,8 +595,13 @@ def plot_taus(fit_dict, axes=None):
             parameters_dict['ka'].append(ka)
             parameters_dict['kuc'].append(np.inf)
         # print('Fitted parameters for:  %.2f nm' %  key)
-        # print(result.ci_out)
-        print(result.fit_report())
+        print('95 ci for %s and parameter kuc:' % (key))
+        a1 = result.params['ka'].value
+        a1_min = result.ci_out['ka'][1][1]
+        a1_max = result.ci_out['ka'][-2][1]
+        print((a1-a1_min)/a1, a1, (a1_max-a1_min)/a1)
+        print('stderr  %-4f', result.params['ka'].stderr/a1)
+        # print(result.fit_report())
     xvalues = np.arange(len(wlen_list))
     bar_width = 0.8
 
@@ -622,6 +627,93 @@ def plot_taus(fit_dict, axes=None):
             # plt.yticks((0.0, 0.1, 0.2))
             ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
     return
+
+
+def plot_taus_errbars(fit_dict, axes=None):
+    if axes is None:
+        ax = plt.gca()
+
+    parameters_dict = {'a1': [],
+                       'a2': [],
+                       'ka': [],
+                       'kuc': [],
+                       'f': [],
+                       'tau_a': [],
+                       'tau_etu': []}
+
+    def get_errbars_tuple(result=None, param=None, scale=1, invert=False):
+        minval = result.ci_out[param][1][1]/scale
+        maxval = result.ci_out[param][-2][1]/scale
+        val = result.params[param].value/scale
+        if invert:
+            return(1/maxval, 1/val, 1/minval)
+        return (minval, val, maxval)
+
+    f_list = list()
+    kUC_list = list()
+    ka_list = list()
+    tau_ETU = list()
+
+    wlen_list = [float(w) for w in fit_dict.keys()]
+    wlens_iter = iter(wlen_list)
+    labels = ['%i' % wl for wl in wlen_list]
+
+
+    for key, result in fit_dict.items():
+        if(result.model.name == 'Model(double_exponential)'):
+            a_ka = result.params['a1'].value
+            a_kuc = result.params['a2'].value
+            f = a_ka/(a_ka+a_kuc)
+            parameters_dict['f'].append((f, f, f))
+            if f < 0.999:
+                kuc_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000)
+                tau_etu_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000, invert=True)
+            else:
+                kuc_tuple = (0, np.inf, 0)
+                tau_etu_tuple = (0, 0, 0)
+            parameters_dict['kuc'].append(kuc_tuple)
+            parameters_dict['tau_etu'].append(tau_etu_tuple)
+        elif(result.model.name == 'Model(exponential)'):
+            f = 1
+            parameters_dict['f'].append((1, 1, 1))
+
+            parameters_dict['kuc'].append((0, np.inf, 0))
+            parameters_dict['tau_etu'].append((0, 0, 0))
+        tau_a_tuple = get_errbars_tuple(result=result, param='ka', scale=1000, invert=True)
+        parameters_dict['ka'].append(get_errbars_tuple(result=result, param='ka', scale=1000))
+        parameters_dict['tau_a'].append(tau_a_tuple)
+        # print('Fitted parameters for:  %.2f nm' %  key)
+        print('95 ci for %s and parameter kuc:' % (key))
+        a1 = result.params['ka'].value
+        a1_min = result.ci_out['ka'][1][1]
+        a1_max = result.ci_out['ka'][-2][1]
+        print((a1-a1_min)/a1, a1, (a1_max-a1_min)/a1)
+        print('stderr  %-4f', result.params['ka'].stderr/a1)
+        # print(result.fit_report())
+    xvalues = np.arange(len(wlen_list))
+    bar_width = 0.8
+
+    tau_a = [float(k[1]) for k in parameters_dict['tau_a']]
+    bpa = axes[0].bar(xvalues, tau_a, bar_width)
+    tau_etu = [float(k[1]) for k in parameters_dict['tau_etu']]
+    print(tau_etu, xvalues)
+    bpb = axes[1].bar(xvalues, tau_etu, bar_width)
+
+    for ax in axes:
+        wlens_iter = iter(wlen_list)
+        for i in range(len(bpa)):
+            wlen = next(wlens_iter)
+            bpa[i].set_facecolor(wlen_to_rgb(wlen))
+            bpa[i].set_edgecolor('k')
+            bpb[i].set_facecolor(wlen_to_rgb(wlen))
+            bpb[i].set_edgecolor('k')
+            plt.sca(ax)
+            plt.xticks(xvalues+0.05, labels, rotation=90)
+            # plt.yticks((0.0, 0.1, 0.2))
+            ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    return
+
+
 
 def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
     if ax is None:
