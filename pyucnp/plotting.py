@@ -11,6 +11,7 @@ import csv
 import itertools as it
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 # import matplotlib.colors
@@ -204,6 +205,18 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         Description of returned object.
 
     """
+    def power_to_density(power_labels):
+        # dens_factor = (4.35/0.008)**2
+        # dens_factor = 0.008
+        # cm_factor = 1/100
+        Aout = np.pi*0.004**2
+        conv_factor = 1/Aout/10000
+        density = np.log10([float(p)*conv_factor for p in power_labels])
+        print([float(p)*conv_factor for p in power_labels])
+        return density
+
+    density = power_to_density(power_labels)
+    print(power_labels)
     fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6],
                              sharex=True, sharey=False)
     # ax_common = fig.add_subplot(111)    # The big subplot
@@ -218,26 +231,31 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         x, y = [10*np.log10(power_labels), 10*np.log10(pamps)]
         lp_params = fit_line(x[lpslice], y[lpslice])
         hp_params = fit_line(x[hpslice], y[hpslice])
-        ax.plot(x, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
+        ax.plot(density, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
                 markersize=4.5, linewidth = .0)
-        ax.plot(x, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
-        ax.plot(x, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
+        ax.plot(density, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
+        ax.plot(density, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
         annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.9, .45))
         annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.9, .25))
         # ax.legend(bbox_to_anchor=(0.35, 0.15), loc=2, borderaxespad=0.)
         # ax.set_xlim(-30, -6)
         ax.set_ylim(np.min(y)-5, np.max(y)+5)
-        ax.set_xlabel('Log Excitation ($mW/cm^2$)')
+        ax.set_xlabel('Excitation density ($log(W/cm^2)$)')
     plt.sca(ax)
-    p_to_dens = (4.35/0.008)**2/1000
-    print(power_labels[0]*p_to_dens)
-    xvalues = x[::5]
-    labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
-    labels = labels[::5]
-    plt.xticks(xvalues, labels)
-    # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
 
-    axes[0].set_ylabel('Emitting power (log(), U.A.)')
+    def formatter(x, p):
+        return "%.1f" % ((10 ** x))
+    ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(formatter))
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # # print(power_labels[0]*p_to_dens)
+    # xvalues = x[::5]
+    # # labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
+    # labels = density[::5]
+    # print(labels)
+    # plt.xticks(xvalues, labels)
+    # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    # ax.xaxis.set_major_locator(ticker.FixedLocator([.1, 1, 10, 100]))
+    ax.set_ylabel('Log Intensity (A.U.)')
     if filename:
         plt.savefig(filename)
     plt.show()
@@ -641,13 +659,25 @@ def plot_taus_errbars(fit_dict, axes=None):
                        'tau_a': [],
                        'tau_etu': []}
 
-    def get_errbars_tuple(result=None, param=None, scale=1, invert=False):
-        minval = result.ci_out[param][1][1]/scale
-        maxval = result.ci_out[param][-2][1]/scale
+    def get_errbars_tuple(result=None, param=None, scale=1, invert=False, mode='stderr'):
         val = result.params[param].value/scale
-        if invert:
-            return(1/maxval, 1/val, 1/minval)
-        return (minval, val, maxval)
+
+        if mode == 'stderr':
+            minval = result.params[param].stderr/scale
+            maxval = result.params[param].stderr/scale
+
+            if invert:
+                return(maxval/val*1/val, 1/val, minval/val*1/val)
+            return (minval, val, maxval)
+        elif mode == 'ciout':
+            minval = result.ci_out[param][1][1]/scale
+            maxval = result.ci_out[param][-2][1]/scale
+            if invert:
+                return(1/val-1/maxval, 1/val, 1/minval-1/val)
+            return (val-minval, val, maxval-val)
+
+    def get_list(tuple_list, name, n_element):
+        return [float(k[n_element]) for k in parameters_dict[name]]
 
     f_list = list()
     kUC_list = list()
@@ -665,7 +695,7 @@ def plot_taus_errbars(fit_dict, axes=None):
             a_kuc = result.params['a2'].value
             f = a_ka/(a_ka+a_kuc)
             parameters_dict['f'].append((f, f, f))
-            if f < 0.999:
+            if f < 0.95:
                 kuc_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000)
                 tau_etu_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000, invert=True)
             else:
@@ -676,28 +706,23 @@ def plot_taus_errbars(fit_dict, axes=None):
         elif(result.model.name == 'Model(exponential)'):
             f = 1
             parameters_dict['f'].append((1, 1, 1))
-
             parameters_dict['kuc'].append((0, np.inf, 0))
             parameters_dict['tau_etu'].append((0, 0, 0))
+        print(key, f)
         tau_a_tuple = get_errbars_tuple(result=result, param='ka', scale=1000, invert=True)
         parameters_dict['ka'].append(get_errbars_tuple(result=result, param='ka', scale=1000))
         parameters_dict['tau_a'].append(tau_a_tuple)
         # print('Fitted parameters for:  %.2f nm' %  key)
-        print('95 ci for %s and parameter kuc:' % (key))
-        a1 = result.params['ka'].value
-        a1_min = result.ci_out['ka'][1][1]
-        a1_max = result.ci_out['ka'][-2][1]
-        print((a1-a1_min)/a1, a1, (a1_max-a1_min)/a1)
-        print('stderr  %-4f', result.params['ka'].stderr/a1)
-        # print(result.fit_report())
+        # print(result.ci_report())
     xvalues = np.arange(len(wlen_list))
     bar_width = 0.8
 
-    tau_a = [float(k[1]) for k in parameters_dict['tau_a']]
-    bpa = axes[0].bar(xvalues, tau_a, bar_width)
-    tau_etu = [float(k[1]) for k in parameters_dict['tau_etu']]
-    print(tau_etu, xvalues)
-    bpb = axes[1].bar(xvalues, tau_etu, bar_width)
+    errmin, tau_a, errmax = zip(*parameters_dict['tau_a'])
+    tau_a_err = [errmin, errmax]
+    bpa = axes[0].bar(xvalues, tau_a, bar_width, yerr=tau_a_err, capsize=2)
+    errmin, tau_etu, errmax = zip(*parameters_dict['tau_etu'])
+    tau_etu_err = [errmin, errmax]
+    bpb = axes[1].bar(xvalues, tau_etu, bar_width, yerr=tau_etu_err, capsize=2)
 
     for ax in axes:
         wlens_iter = iter(wlen_list)
@@ -707,10 +732,16 @@ def plot_taus_errbars(fit_dict, axes=None):
             bpa[i].set_edgecolor('k')
             bpb[i].set_facecolor(wlen_to_rgb(wlen))
             bpb[i].set_edgecolor('k')
-            plt.sca(ax)
-            plt.xticks(xvalues+0.05, labels, rotation=90)
             # plt.yticks((0.0, 0.1, 0.2))
-            ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    axes[0].set_ylim([0, 0.4])
+    axes[1].set_ylim([0, 0.11])
+    axes[0].yaxis.set_major_locator(ticker.FixedLocator([0.2, 0.4]))
+    axes[1].yaxis.set_major_locator(ticker.FixedLocator([0, 0.05, 0.1]))
+    plt.sca(axes[1])
+    plt.xticks(xvalues+0.05, labels, rotation=90)
+    axes[1].tick_params(axis='x', pad=-142, labelcolor='k', bottom=False)
+
+
     return
 
 

@@ -14,7 +14,7 @@ import pandas as pd
 from . import fitting as df
 import yaml
 
-DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
+DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'specs.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'data.yaml'
@@ -233,6 +233,7 @@ def load_data(daystr, config_file=None):
         yaml_fin = config_file
     else:
         yaml_fin = os.path.join(basedir, DATA_DEFAULT)
+    print(yaml_fin)
     config_dict = yaml.load(open(yaml_fin, 'r'))
     config = collections.namedtuple('config', config_dict.keys())
     cfg = config(*config_dict.values())
