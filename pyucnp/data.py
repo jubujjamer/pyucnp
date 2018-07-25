@@ -14,7 +14,7 @@ import pandas as pd
 from . import fitting as df
 import yaml
 
-DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
+DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'specs.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'data.yaml'
