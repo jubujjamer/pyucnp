@@ -209,14 +209,14 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
         # dens_factor = (4.35/0.008)**2
         # dens_factor = 0.008
         # cm_factor = 1/100
-        Aout = np.pi*0.004**2
+        Aout = np.pi*0.0003**2
         conv_factor = 1/Aout/10000
-        density = np.log10([float(p)*conv_factor for p in power_labels])
+        density = np.array([float(p)*conv_factor for p in power_labels])
         print([float(p)*conv_factor for p in power_labels])
         return density
 
     density = power_to_density(power_labels)
-    print(power_labels)
+    # print(density)
     fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6],
                              sharex=True, sharey=False)
     # ax_common = fig.add_subplot(111)    # The big subplot
@@ -225,28 +225,39 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
     axiter = iter(fig.axes)
     for wlen in wlen_list:
         ax = next(axiter)
+
         hpslice = slice(-5, -1)
         lpslice = slice(12, 20)
         pamps = np.array(power_list[wlen])
-        x, y = [10*np.log10(power_labels), 10*np.log10(pamps)]
-        lp_params = fit_line(x[lpslice], y[lpslice])
-        hp_params = fit_line(x[hpslice], y[hpslice])
-        ax.plot(density, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
+        xlog, ylog = [np.log10(power_labels), np.log10(pamps)]
+        x, y = [power_labels, pamps]
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        # ax.plot(density, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
+        #         markersize=4.5, linewidth = .0)
+        # ax.plot(density, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
+        # ax.plot(density, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
+        ax.loglog(density, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
                 markersize=4.5, linewidth = .0)
-        ax.plot(density, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
-        ax.plot(density, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
+        ax.loglog(density, np.float_power(10, lp_params['b']+lp_params['m']*xlog), 'k--', linewidth=1.2)
+        ax.loglog(density, np.float_power(10, hp_params['b']+hp_params['m']*xlog), 'k--', linewidth=1.2)
         annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.9, .45))
         annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.9, .25))
         # ax.legend(bbox_to_anchor=(0.35, 0.15), loc=2, borderaxespad=0.)
         # ax.set_xlim(-30, -6)
-        ax.set_ylim(np.min(y)-5, np.max(y)+5)
-        ax.set_xlabel('Excitation density ($log(W/cm^2)$)')
-    plt.sca(ax)
+        # ax.set_ylim(np.min(y)-5, np.max(y)+5)
+        # ax.yaxis.set_major_locator(MaxNLocator(3))
+        ax.set_xlabel('Excitation density ($W/cm^2$)')
+        ax.set_ylim([1E3, 1E9])
 
-    def formatter(x, p):
-        return "%.1f" % ((10 ** x))
-    ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(formatter))
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+        # plt.locator_params(numticks=2)
+    # plt.sca(ax)
+    # def formatter(x, p):
+    #     return "%.1f" % ((10 ** x))
+    # ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(formatter))
+    # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     # # print(power_labels[0]*p_to_dens)
     # xvalues = x[::5]
     # # labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
@@ -255,11 +266,185 @@ def plot_stationary(power_list, power_labels, wlen_list, filename=None):
     # plt.xticks(xvalues, labels)
     # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
     # ax.xaxis.set_major_locator(ticker.FixedLocator([.1, 1, 10, 100]))
+    # ax.set_xscale('log')
+    # ax.set_yscale('log')
     ax.set_ylabel('Log Intensity (A.U.)')
     if filename:
         plt.savefig(filename)
     plt.show()
 
+
+def plot_stationary_allpeaks(power_list, power_labels, wlen_list, filename=None):
+    """ plot loglog stationary powers.
+
+    Parameters
+    ----------
+    power_sweep_list : type
+        Description of parameter `power_sweep_list`.
+    power_labels : type
+        Description of parameter `power_labels`.
+    wavelength_list : typenormalize_spectrum
+        Description of parameter `wavelength_list`.
+    filename : type
+        Description of parameter `filename`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    def power_to_density(power_labels):
+        # dens_factor = (4.35/0.008)**2
+        # dens_factor = 0.008
+        # cm_factor = 1/100
+        Aout = np.pi*0.0003**2
+        conv_factor = 1/Aout/10000
+        density = np.array([float(p)*conv_factor for p in power_labels])
+        print([float(p)*conv_factor for p in power_labels])
+        return density
+
+    density = power_to_density(power_labels)
+    # print(density)
+    fig, ax = plt.subplots(1, 1, figsize=[10, 5],
+                             sharex=True, sharey=False)
+    # ax_common = fig.add_subplot(111)    # The big subplot
+    # ax_common.set_ylabel('Emission power (log(), U.A.)')
+
+    axiter = iter(fig.axes)
+    for wlen in wlen_list:
+        hpslice = slice(-5, -1)
+        lpslice = slice(12, 20)
+        pamps = np.array(power_list[wlen])
+        xlog, ylog = [np.log10(power_labels), np.log10(pamps)]
+        x, y = [power_labels, pamps]
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        # ax.plot(density, y, label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
+        #         markersize=4.5, linewidth = .0)
+        # ax.plot(density, lp_params['b']+lp_params['m']*x, 'k--', linewidth=1.2)
+        # ax.plot(density, hp_params['b']+hp_params['m']*x, 'k--', linewidth=1.2)
+        if any(y<50):
+            start = 5
+        # else:
+        #     start = 0
+        ax.loglog(density[start:], y[start:], label='%3i nm' % wlen, marker='o', color=wlen_to_rgb(wlen),
+                markersize=2.5, linewidth = .8)
+        # ax.loglog(density, np.float_power(10, lp_params['b']+lp_params['m']*xlog), 'k--', linewidth=1.2)
+        # ax.loglog(density, np.float_power(10, hp_params['b']+hp_params['m']*xlog), 'k--', linewidth=1.2)
+        annotate(ax, '$\\alpha_1$ = %.2f' % lp_params['m'], xytext=(.9, .45))
+        annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.9, .25))
+        # ax.legend(bbox_to_anchor=(1.05, 0.95), loc=2, borderaxespad=0.)
+        # ax.set_xlim(-30, -6)
+        # ax.set_ylim(np.min(y)-5, np.max(y)+5)
+        # ax.yaxis.set_major_locator(MaxNLocator(3))
+        ax.set_xlabel('Excitation density ($W/cm^2$)')
+        # ax.set_ylim([1E3, 1E9])
+
+        # plt.locator_params(numticks=2)
+    # plt.sca(ax)
+    # def formatter(x, p):
+    #     return "%.1f" % ((10 ** x))
+    # ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(formatter))
+    # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # # print(power_labels[0]*p_to_dens)
+    # xvalues = x[::5]
+    # # labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
+    # labels = density[::5]
+    # print(labels)
+    # plt.xticks(xvalues, labels)
+    # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    # ax.xaxis.set_major_locator(ticker.FixedLocator([.1, 1, 10, 100]))
+    # ax.set_xscale('log')
+    # ax.set_yscale('log')
+    ax.set_ylabel('Log Intensity (A.U.)')
+    if filename:
+        plt.savefig(filename)
+    plt.show()
+
+def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
+    """ plot loglog stationary powers.
+
+    Parameters
+    ----------
+    power_sweep_list : type
+        Description of parameter `power_sweep_list`.
+    power_labels : type
+        Description of parameter `power_labels`.
+    wavelength_list : typenormalize_spectrum
+        Description of parameter `wavelength_list`.
+    filename : type
+        Description of parameter `filename`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    def power_to_density(power_labels):
+        # dens_factor = (4.35/0.008)**2
+        # dens_factor = 0.008
+        # cm_factor = 1/100
+        Aout = np.pi*0.0003**2
+        conv_factor = 1/Aout/10000
+        density = np.array([float(p)*conv_factor for p in power_labels])
+        print([float(p)*conv_factor for p in power_labels])
+        return density
+
+    density = power_to_density(power_labels)
+    # print(density)
+    fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6],
+                             sharex=True, sharey=False)
+    # ax_common = fig.add_subplot(111)    # The big subplot
+    # ax_common.set_ylabel('Emission power (log(), U.A.)')
+
+    axiter = iter(fig.axes)
+    for i, bp in enumerate(power_list.keys()):
+        wlen = wlen_list[i]
+        ax = next(axiter)
+
+        hpslice = slice(-5, -1)
+        lpslice = slice(12, 20)
+        pamps = np.array(power_list[bp])
+        xlog, ylog = [np.log10(power_labels), np.log10(pamps)]
+        x, y = [power_labels, pamps]
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        ax.loglog(density, y, label='%s' % bp, marker='o', color=wlen_to_rgb(wlen),
+                markersize=4.5, linewidth = .0)
+        ax.loglog(density, np.float_power(10, lp_params['b']+lp_params['m']*xlog), 'k--', linewidth=1.2)
+        ax.loglog(density, np.float_power(10, hp_params['b']+hp_params['m']*xlog), 'k--', linewidth=1.2)
+        # ax.text(0.05, 0.75,'%s $\\alpha_1$ = %.2f' % (bp, lp_params['m']), transform=ax.transAxes)
+        # ax.text(0.25, 0.75,'$\\alpha_2$ = %.2f' % hp_params['m'],transform=ax.transAxes)
+        # annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.5, .25))
+        ax.legend(bbox_to_anchor=(0.85, 0.35), loc=2, borderaxespad=0.)
+        # ax.set_xlim(-30, -6)
+        # ax.set_ylim(np.min(y)-5, np.max(y)+5)
+        # ax.yaxis.set_major_locator(MaxNLocator(3))
+        ax.set_xlabel('Excitation density ($W/cm^2$)')
+        ax.set_ylim([1E3, 1E9])
+
+        # plt.locator_params(numticks=2)
+    # plt.sca(ax)
+    # def formatter(x, p):
+    #     return "%.1f" % ((10 ** x))
+    # ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(formatter))
+    # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # # print(power_labels[0]*p_to_dens)
+    # xvalues = x[::5]
+    # # labels = ['%.1f' % (float(p)*p_to_dens) for p in power_labels]
+    # labels = density[::5]
+    # print(labels)
+    # plt.xticks(xvalues, labels)
+    # ax.tick_params(axis='x', pad=-30, labelcolor='k', bottom=False)
+    # ax.xaxis.set_major_locator(ticker.FixedLocator([.1, 1, 10, 100]))
+    # ax.set_xscale('log')
+    # ax.set_yscale('log')
+    ax.set_ylabel('Log Intensity (A.U.)')
+    if filename:
+        plt.savefig(filename)
+    plt.show()
 #
 # def plot_3d(spectrum_list, wavelength_list, ax=None, filename=None):
 #
@@ -694,7 +879,7 @@ def plot_taus_errbars(fit_dict, axes=None):
             a_ka = result.params['a1'].value
             a_kuc = result.params['a2'].value
             f = a_ka/(a_ka+a_kuc)
-            parameters_dict['f'].append((f, f, f))
+            parameters_dict['f'].append((0, f, 0))
             if f < 0.95:
                 kuc_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000)
                 tau_etu_tuple = get_errbars_tuple(result=result, param='kUC', scale=1000, invert=True)
@@ -705,7 +890,7 @@ def plot_taus_errbars(fit_dict, axes=None):
             parameters_dict['tau_etu'].append(tau_etu_tuple)
         elif(result.model.name == 'Model(exponential)'):
             f = 1
-            parameters_dict['f'].append((1, 1, 1))
+            parameters_dict['f'].append((0, 1, 0))
             parameters_dict['kuc'].append((0, np.inf, 0))
             parameters_dict['tau_etu'].append((0, 0, 0))
         print(key, f)

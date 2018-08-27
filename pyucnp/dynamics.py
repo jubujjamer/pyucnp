@@ -262,7 +262,8 @@ def simulate_simple_input(tdata, ydata, state):
         else:
             return 0
 
-    k1, k2a, wetu, E, k2b = [5, 2, 0.005, .020, 2]
+    # k1, k2a, wetu, E, k2b = [5, 2, 0.005, .020, 2]
+    k1, k2a, wetu, E, k2b = [5, 2, 5, .020, 2]
     fixed_p = [k1, k2a, wetu, E, k2b]
 
     p0 = [k1, k2a, wetu, E, k2b]

@@ -151,11 +151,15 @@ def print_datainfo(daystr, filenames):
     return
 
 
-def load_spectrum(daystr, meas_n):
+def load_spectrum(daystr, meas_n, fname=None):
     """ Get Felix PTI spectrum.wavelength_list
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
-    data_fin = os.path.join(basedir, SPEC_DEFAULT)
+    if not fname:
+        # data_fin = os.path.join(basedir, SPEC_DEFAULT)
+        fname = SPEC_DEFAULT
+    data_fin = os.path.join(basedir, fname)
+
     columns = list()
     for i in range(132):
         columns.append(str(i))
@@ -163,8 +167,8 @@ def load_spectrum(daystr, meas_n):
     head = 4
     x = table[str((meas_n-1)*2)][head:]
     y = table[str((meas_n-1)*2+1)][head:]
-    x = [float(x_i) for x_i in x]
-    y = [float(y_i) for y_i in y]
+    x = np.array([float(x_i) for x_i in x])
+    y = np.array([float(y_i) for y_i in y])
     try:
         first_nan = np.where(np.isnan(x))[0][0]
     except:
