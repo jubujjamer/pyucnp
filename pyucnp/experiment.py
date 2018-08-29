@@ -12,10 +12,9 @@ import numpy as np
 import matplotlib.pylab as plt
 # from mayavi import mlab
 from scipy import integrate
-
 import matplotlib.pyplot as plt
 
-
+from pyucnp.fitting import fit_line, robust_fit, robust_best_fit
 
 def gaussian_function(l, mean, std):
     """ Simple gaussian function.
@@ -200,44 +199,162 @@ class EmissionMeasurement(object):
         return total_spectrum
 
 
+class SpectralData(object):
+    """ Class to manage emmission, power and decay curves.
+    """
+    def __init__(self, spectral_decays=[], relevant_peaks=None,
+                analysis_peaks=None, relevant_bands=None):
+        """
+        Parameters:
+        ----------
+            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        """
+        __all__ = ['__init__']
+        self.relevant_bands = relevant_bands
+        self.relevant_peaks = relevant_peaks
+        self.analysis_peaks = analysis_peaks
+        self.spectral_decays = dict()
+        self.spectra = dict()
 
-# x, y, z = np.ogrid[-rmax:rmax:100j, -rmax:rmax:100j, -600:600:100j]
-# A0 = 1
-# w0 = 5
-# wlen = 0.5
-# zr = np.pi*w0**2/wlen
-# i = A0/(1+(z/zr)**2)*np.exp(-(x**2+y**2)/(w0**2 * (1+(z/zr)**2 ) ) )
-# mlab.figure(bgcolor=(1,1,1), fgcolor=(0.,0.,0.))
-# mlab.pipeline.volume(mlab.pipeline.scalar_field(i), vmin=0, vmax=.5)
-# mlab.view(azimuth=0,  elevation=90, distance=800, focalpoint=None, roll=0)
-# mlab.outline(extent=[0, 100, 0, 400, 0, 100], opacity=1.)
-# mlab.show()
-#
-#
-# def gaussian(l, mean, std):
-#     spec = 1/(np.sqrt(np.pi)*std)*np.exp(-(l-mean)**2/std**2)
-#     return spec
-#
-# def calculate_po(Pi=None, c1=0, c2=0):
-#     Po = c1*Pi+c2*Pi**2
-#     return Po
-#
-# # l = np.linspace(500, 700, 200)
-# # Pi=.5
-# # Pa = calculate_po(Pi=Pi, c1=1, c2=1)
-# # Pb = calculate_po(Pi=Pi, c1=1, c2=2)
-# # spec_a = Pa*2*gaussian(l, 540, 20)
-# # spec_b = Pb*gaussian(l, 650, 20)
-# # plt.plot(l, spec_a+spec_b)
-# # plt.show()
-#
-#
-# def gaussian_beam(x, y, z, A0, w0, wlen):
-#     zr = np.pi*w0**2/wlen
-#     return A0**2/(1+(z/zr)**2)*np.exp(-(x**2+y**2)/(w0**2 * (1+(z/zr)**2 ) ) )
-#
-# def output_power(x, y, z, A0, w0, wlen, c1, c2):
-#     power_distribution = gaussian_beam(x, y, z, A0, w0, wlen)
-#     return c1*power_distribution+c2*power_distribution**2
-#
-# # total_box_power = integrate.nquad(output_power, [[-rmax,rmax], [-rmax,rmax], [-250, 250]], args=(1, 5, 0.5, 1, 1))
+    def addSpectrum(self, spectrum, index):
+        """"Adds a spectrum to spectra container. Index should be consistent with the keys of cfg.spectrum_data for each measurement."""
+        self.spectra[index] = spectrum
+
+    def addSpectralDecay(self, spectral_decay, index, wavelength):
+        """"Adds a time decay to spectra container. Index should be consistent with the keys of cfg.spectrum_data for each measurement."""
+        if index not in self.spectral_decays.keys():
+            self.spectral_decays[index] = dict()
+        self.spectral_decays[index][wavelength] = spectral_decay
+
+    def intensityPeaks(self, index):
+        try:
+            spectrum = self.spectra[index]
+        except:
+            raise Exception('Spectrum with index %i was not added' % index)
+        peaks_intensities = [spectrum.integrate_band(peak-2, peak+2) for peak in self.relevant_peaks]
+        return np.array(self.relevant_peaks), np.array(peaks_intensities)
+
+    def intensityBands(self, index):
+        try:
+            spectrum = self.spectra[index]
+        except:
+            raise Exception('Spectrum with index %i was not added' % index)
+
+        names, limits = zip(*self.relevant_bands.items())
+        bands_intensities = [spectrum.integrate_band(l, h) for l, h in limits]
+        bands_dict = dict(zip(names, np.array(bands_intensities)))
+        return bands_dict
+
+    def limitingSlopes(self, wavelength):
+        """ Calculates limiting slopes in a log log plot.
+        """
+        ## Defines wich points correspond to low and high power linear limits.
+        hpslice = slice(-5, -1)
+        lpslice = slice(12, 20)
+        indexes, spectra = zip(*self.spectra.items())
+        excitations = [s.excitation_power for s in spectra]
+        intensity_curve = [s.peak_intensity(wavelength) for s in spectra]
+        xlog, ylog = [np.log10(excitations), np.log10(intensity_curve)]
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        return lp_params['m'].value, hp_params['m'].value
+
+
+    def decay_parameters(self, index, wavelength):
+        """ Calculates exponential decay parameters for a given wavelength.
+        """
+        try:
+            spectral_decay = self.spectral_decays[index][wavelength]
+        except:
+            raise Exception('Spectral decay with index %i was not added' % index)
+        if spectral_decay.a1 is not None:
+            return spectral_decay.a1, spectral_decay.tau1, spectral_decay.tau1, spectral_decay.tau2
+        else:
+            tdata = spectral_decay.time
+            idata = spectral_decay.idata
+            result = robust_best_fit(tdata, idata, model='double_neg')
+            a1 = result.params['a1'].value
+            tau1 = 1000/result.params['ka'].value
+            try:
+                a2 = result.params['a2'].value
+                tau2 = 1000/result.params['kUC'].value
+            except:
+                a2 = 0
+                tau2 = np.inf
+            spectral_decay.a1 = a1
+            spectral_decay.a1 = tau1
+            spectral_decay.a1 = a2
+            spectral_decay.a1 = tau2
+            return a1, tau1, a2, tau2
+
+class SpectralDecay(object):
+    """ Class to manage emmission, power and decay curves.
+    """
+    def __init__(self, time=None, idata=None, excitation_power=None):
+        """
+        Parameters:
+        ----------
+            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        """
+        __all__ = ['__init__']
+        self.idata = idata
+        self.time = time
+        self.excitation_power = excitation_power
+        self.a1 = None
+        self.tau1 = None
+        self.a2 = None
+        self.tau2 = None
+
+class Spectrum(object):
+    """ Class to manage emmission, power and decay curves.
+    """
+    def __init__(self, wavelenghts, spectrum_intensity, counts_to_power=None, excitation_power=None, normalization='none'):
+        """
+        Parameters:
+        ----------
+            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        """
+        __all__ = ['__init__']
+        self.excitation_power = excitation_power
+        self.counts_to_power = counts_to_power
+        self.normalization = normalization
+
+        if len(wavelenghts) != len(spectrum_intensity):
+            raise Exception('Number of points in wavelenghts should equal number of points in intensities.')
+        else:
+            self.wavelengths = np.array(wavelenghts)
+            self.spectrum_intensity = np.array(spectrum_intensity)
+            try:
+                float(self.counts_to_power)
+                self.spectrum_intensity *= self.counts_to_power
+            except:
+                raise Exception('Counts to power ratio is not a valid number.')
+
+    def integrate_band(self, start_wl, end_wl):
+        from scipy.integrate import simps
+        start_pind = int(np.where(self.wavelengths == start_wl)[0])
+        end_pind = int(np.where(self.wavelengths == end_wl)[0])
+        integral_power = simps(self.spectrum_intensity[start_pind:end_pind])
+        return integral_power
+
+    def get_values(self):
+        """ Returns the spectrum values considering the transformation chosen.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        print('Showing spectrum with %s transformation.' % self.normalization)
+        if self.normalization == 'background':
+            background = np.mean(self.spectrum_intensity[0:10])
+            spectrum_corrected = self.spectrum_intensity - background + 1
+            return self.wavelenghts, spectrum_corrected
+
+        elif self.normalization == 'none':
+            return self.wavelenghts, spectrum_corrected
+
+    def peak_intensity(self, wavelength):
+        peak_amp = self.integrate_band(start_wl=wavelength-3, end_wl=wavelength+3)
+        return peak_amp

@@ -21,10 +21,7 @@ from matplotlib.collections import PolyCollection, PatchCollection
 # import matplotlib.cm as cm
 # import colour.plotting as cplt
 # import colour
-
-
 from pyucnp.fitting import fit_line, fit_power, robust_fit
-
 
 def wlen_to_rgb(wavelength, gamma=0.8):
     ''' taken from http://www.noah.org/wiki/Wavelength_to_RGB_in_Python

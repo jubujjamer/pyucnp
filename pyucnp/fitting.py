@@ -117,7 +117,8 @@ def robust_fit(tdata, ydata, init_params=None, model='single'):
     return r_min
 
 
-def robust_best_fit(tdata, ydata, init_params=None, model='single', criterion='F-test'):
+def robust_best_fit(tdata, ydata, init_params=None, model='single', criterion='F-test',
+                    verbose=False):
     from scipy.stats import f
 
     a1_list = np.arange(0, 1.2, .2)
@@ -175,12 +176,14 @@ def robust_best_fit(tdata, ydata, init_params=None, model='single', criterion='F
     # print('F-test simple model rejected: %r. p: %.2f' % (F>Flimit, p))
 
     if keep_single_model:
-        print('Choose simple model according to %s' % criterion)
+        if verbose:
+            print('Choose simple model according to %s' % criterion)
         # print(r_min_simple.fit_report())
         r_min_simple.conf_interval()
         return r_min_simple
     else:
-        print('Choose double exponential model according to %s' % criterion)
+        if verbose:
+            print('Choose double exponential model according to %s' % criterion)
         # print(r_min_double.fit_report())
         r_min_double.conf_interval()
         return r_min_double
