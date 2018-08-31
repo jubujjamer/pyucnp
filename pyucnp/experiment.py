@@ -227,6 +227,21 @@ class SpectralData(object):
         self.spectral_decays[index][wavelength] = spectral_decay
 
     def intensityPeaks(self, index):
+        """ Calculates the power in isolated spectral peaks.
+
+        It takes the peaks from 'relevant_peaks' and outputs the spectrum intensity for each of them.
+
+        Parameters
+        ----------
+        index : type
+            Description of parameter `index`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
         try:
             spectrum = self.spectra[index]
         except:
@@ -282,21 +297,30 @@ class SpectralData(object):
                 a2 = 0
                 tau2 = np.inf
             spectral_decay.a1 = a1
-            spectral_decay.a1 = tau1
-            spectral_decay.a1 = a2
-            spectral_decay.a1 = tau2
+            spectral_decay.tau1 = tau1
+            spectral_decay.a2 = a2
+            spectral_decay.tau2 = tau2
             return a1, tau1, a2, tau2
 
 class SpectralDecay(object):
-    """ Class to manage emmission, power and decay curves.
+    """ Class to manage emission, power and decay curves.
     """
     def __init__(self, time=None, idata=None, excitation_power=None):
-        """
-        Parameters:
+        """ SpectralDecay initializer.
+        Parameters
         ----------
-            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        time : Numpy array
+            Time data in a 1D array.
+        idata : Numpy array
+            Intensity axis for the spectra decay.
+        excitation_power : float
+            Excitation power for the given measurement.
+
+        Returns
+        -------
+        type
+            An instance of ScaterDecay.
         """
-        __all__ = ['__init__']
         self.idata = idata
         self.time = time
         self.excitation_power = excitation_power
@@ -306,15 +330,30 @@ class SpectralDecay(object):
         self.tau2 = None
 
 class Spectrum(object):
-    """ Class to manage emmission, power and decay curves.
-    """
-    def __init__(self, wavelenghts, spectrum_intensity, counts_to_power=None, excitation_power=None, normalization='none'):
-        """
-        Parameters:
+    """ Sectrum class to hold all intensity measurements.
+        Parameters
         ----------
-            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        wavelenghts : list or array
+            Wavelenght axis of the spectrum.
+        spectrum_intensity : type
+            Intensity axis of the spectrum, should have the same number of points than wavlengths.
+        counts_to_power : float
+            Conversion factor from counts to power in mW to conver the intensity measurements.
+        excitation_power : float
+            Power of the excitation source.
+        normalization : string
+            The type of normalization desired. It can be:
+            'background': background correction.
+            'none': for no correction or scaling
+
+        Returns
+        -------
+        Spectrum
+            Instance of the Spectrum class.
+
         """
-        __all__ = ['__init__']
+    def __init__(self, wavelenghts, spectrum_intensity, counts_to_power=None, excitation_power=None, normalization='none'):
+
         self.excitation_power = excitation_power
         self.counts_to_power = counts_to_power
         self.normalization = normalization
@@ -342,8 +381,10 @@ class Spectrum(object):
 
         Returns
         -------
-        type
-            Description of returned object.
+        wavelenghts: array
+            Wavelenght axis of the spectrum.
+        spectrum_corrected: array
+            Intensity axis corrected for the given spectrum.
 
         """
         print('Showing spectrum with %s transformation.' % self.normalization)
@@ -356,5 +397,20 @@ class Spectrum(object):
             return self.wavelenghts, spectrum_corrected
 
     def peak_intensity(self, wavelength):
+        """ Intensity of a given peak.
+
+        Returns the intensity of a desired wavelength. It integrates a small band (6 nm by default)
+        around the center wavelength sacled acording to the conversion factor counts_to_power.
+
+        Parameters
+        ----------
+        wavelength : array
+            Wavelenght axis of the spectrum..
+
+        Returns
+        -------
+        peak_amp: float
+            Amplitude of the given peak.
+        """
         peak_amp = self.integrate_band(start_wl=wavelength-3, end_wl=wavelength+3)
         return peak_amp
