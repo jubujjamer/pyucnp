@@ -213,8 +213,8 @@ class SpectralData(object):
         self.relevant_bands = relevant_bands
         self.relevant_peaks = relevant_peaks
         self.analysis_peaks = analysis_peaks
-        self.spectral_decays = dict()
-        self.spectra = dict()
+        self.spectral_decays = dict() # keys of this dict are measurement indexes and wavelength
+        self.spectra = dict() # keys of this dict are measurement indexes
 
     def addSpectrum(self, spectrum, index):
         """"Adds a spectrum to spectra container. Index should be consistent with the keys of cfg.spectrum_data for each measurement."""
@@ -302,6 +302,19 @@ class SpectralData(object):
             spectral_decay.tau2 = tau2
             return a1, tau1, a2, tau2
 
+
+    def promediate_decays(self, index, wlen_start, wlen_end):
+        in_band = [w>=wlen_start and w<wlen_end for w in self.relevant_peaks]
+        peaks = np.array(self.relevant_peaks)
+        for wlen in peaks[in_band]:
+            decay = self.spectral_decays[index][wlen]
+            idata = decay.idata
+            if 'mean_decay' not in locals():
+                time = decay.time
+                mean_decay = np.zeros_like(time)
+            mean_decay += idata
+        return time, mean_decay
+
 class SpectralDecay(object):
     """ Class to manage emission, power and decay curves.
     """
@@ -328,6 +341,8 @@ class SpectralDecay(object):
         self.tau1 = None
         self.a2 = None
         self.tau2 = None
+
+
 
 class Spectrum(object):
     """ Sectrum class to hold all intensity measurements.

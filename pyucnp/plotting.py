@@ -406,13 +406,13 @@ def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
         pamps = np.array(power_list[bp])
         xlog, ylog = [np.log10(power_labels), np.log10(pamps)]
         x, y = [power_labels, pamps]
-        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
-        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice], m=2)
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice], m=1)
         ax.loglog(density, y, label='%s' % bp, marker='o', color=wlen_to_rgb(wlen),
                 markersize=4.5, linewidth = .0)
-        ax.loglog(density, np.float_power(10, lp_params['b']+lp_params['m']*xlog), 'k--', linewidth=1.2)
-        ax.loglog(density, np.float_power(10, hp_params['b']+hp_params['m']*xlog), 'k--', linewidth=1.2)
-        # ax.text(0.05, 0.75,'%s $\\alpha_1$ = %.2f' % (bp, lp_params['m']), transform=ax.transAxes)
+        ax.loglog(density, np.float_power(10, lp_params['b']+2*xlog), 'k--', linewidth=1.2)
+        ax.loglog(density, np.float_power(10, hp_params['b']+1*xlog), 'k--', linewidth=1.2)
+        # ax.text(0.05, 0.75,'$\\alpha_1$ = %.2f' % (lp_params['m']), transform=ax.transAxes)
         # ax.text(0.25, 0.75,'$\\alpha_2$ = %.2f' % hp_params['m'],transform=ax.transAxes)
         # annotate(ax, '$\\alpha_2$ = %.2f' % hp_params['m'], xytext=(.5, .25))
         ax.legend(bbox_to_anchor=(0.85, 0.35), loc=2, borderaxespad=0.)
@@ -922,11 +922,7 @@ def plot_taus_errbars(fit_dict, axes=None):
     plt.sca(axes[1])
     plt.xticks(xvalues+0.05, labels, rotation=90)
     axes[1].tick_params(axis='x', pad=-142, labelcolor='k', bottom=False)
-
-
     return
-
-
 
 def plot_mean_taus(tdecay, mtime_dict, labels=None, ax=None):
     if ax is None:
@@ -1035,5 +1031,26 @@ def add_linear_fitting(lambdas, spectrum_list, ax=None):
         y /= np.max(y)
         ax.plot(x, y, color=next(colors))
 
+    if filename:
+        plt.savefig(filename)
+
+## Rewritten functions using the SpectralData Class.
+def plotSpectrumsClass(sdata, sindexes=None, ax=None, filename=None, normalize=False):
+    import matplotlib.cm as cm
+    if ax is None:
+        ax = plt.gca()
+    if sindexes is not None:
+        iterkeys = sindexes
+    else:
+        iterkeys = sdata.spectra.keys()
+    npeaks = len(iterkeys)
+    colors = iter([cm.afmhot(p) for p in np.linspace(0.05, 0.5, npeaks)])
+    for index in iterkeys:
+        spectrum = sdata.spectra[index]
+        x = spectrum.wavelengths
+        y = spectrum.spectrum_intensity
+        if normalize:
+            y /= np.max(y)
+        ax.plot(x, y, color=next(colors), linewidth=0.8)
     if filename:
         plt.savefig(filename)

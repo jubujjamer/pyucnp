@@ -251,7 +251,7 @@ def robust_ftest(tdata, ydata, init_params=None, model='single'):
     return r_min_simple
 
 
-def fit_line(x, y):
+def fit_line(x, y, m=None):
     def residual(params, x, data):
         b = params['b']
         m = params['m']
@@ -259,7 +259,10 @@ def fit_line(x, y):
         return (data-model)
     params = lmfit.Parameters()
     params.add('b', value=1.)
-    params.add('m', value=1.)
+    if m is not None:
+        params.add('m', value=m, vary=False)
+    else:
+        params.add('m', value=1.)
     result = lmfit.minimize(residual, params, args=(x, y.reshape(1, len(y))))
     return result.params
 
