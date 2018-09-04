@@ -406,8 +406,11 @@ def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
         pamps = np.array(power_list[bp])
         xlog, ylog = [np.log10(power_labels), np.log10(pamps)]
         x, y = [power_labels, pamps]
-        lp_params = fit_line(xlog[lpslice], ylog[lpslice], m=2)
-        hp_params = fit_line(xlog[hpslice], ylog[hpslice], m=1)
+        lp_params = fit_line(xlog[lpslice], ylog[lpslice])
+        hp_params = fit_line(xlog[hpslice], ylog[hpslice])
+        print(bp)
+        print('lp', lp_params)
+        print('hp', hp_params)
         ax.loglog(density, y, label='%s' % bp, marker='o', color=wlen_to_rgb(wlen),
                 markersize=4.5, linewidth = .0)
         ax.loglog(density, np.float_power(10, lp_params['b']+2*xlog), 'k--', linewidth=1.2)
