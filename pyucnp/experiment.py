@@ -14,8 +14,6 @@ import matplotlib.pylab as plt
 from scipy import integrate
 import matplotlib.pyplot as plt
 
-from pyucnp.fitting import fit_line, robust_fit, robust_best_fit
-
 def gaussian_function(l, mean, std):
     """ Simple gaussian function.
     """
@@ -263,6 +261,7 @@ class SpectralData(object):
     def limitingSlopes(self, wavelength):
         """ Calculates limiting slopes in a log log plot.
         """
+        from pyucnp.fitting import fit_line
         ## Defines wich points correspond to low and high power linear limits.
         hpslice = slice(-5, -1)
         lpslice = slice(12, 20)
@@ -278,6 +277,8 @@ class SpectralData(object):
     def decay_parameters(self, index, wavelength):
         """ Calculates exponential decay parameters for a given wavelength.
         """
+
+        from pyucnp.fitting import robust_best_fit
         try:
             spectral_decay = self.spectral_decays[index][wavelength]
         except:
