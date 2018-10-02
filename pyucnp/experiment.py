@@ -342,6 +342,10 @@ class SpectralDecay(object):
         self.a2 = None
         self.tau2 = None
 
+    def isEmpty(self):
+        if self.time is None:
+            return False
+        return True
 
 
 class Spectrum(object):
