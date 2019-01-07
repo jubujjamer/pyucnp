@@ -296,7 +296,7 @@ class SpectralData(object):
                 tau2 = 1000/result.params['kUC'].value
             except:
                 a2 = 0
-                tau2 = np.inf
+                tau2 = 1
             spectral_decay.a1 = a1
             spectral_decay.tau1 = tau1
             spectral_decay.a2 = a2
@@ -304,10 +304,15 @@ class SpectralData(object):
             return a1, tau1, a2, tau2
 
 
-    def promediate_decays(self, index, wlen_start, wlen_end):
+    def promediate_decays(self, index, wlen_start, wlen_end, weighted=False):
         in_band = [w>=wlen_start and w<wlen_end for w in self.relevant_peaks]
         peaks = np.array(self.relevant_peaks)
-        for wlen in peaks[in_band]:
+        if weighted:
+            wlens, weights = self.intensityPeaks(index=33)
+            weights /= np.sum(weights)
+        else:
+            weights = np.ones(len(in_band))
+        for weight, wlen in zip(weights, peaks[in_band]):
             decay = self.spectral_decays[index][wlen]
             idata = decay.idata
             if 'mean_decay' not in locals():

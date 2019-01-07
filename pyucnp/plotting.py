@@ -380,15 +380,25 @@ def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
 
     """
     def power_to_density(power_labels):
-        # dens_factor = (4.35/0.008)**2
-        # dens_factor = 0.008
-        # cm_factor = 1/100
-        Aout = np.pi*0.0003**2
-        conv_factor = 1/Aout/10000
-        density = np.array([float(p)*conv_factor for p in power_labels])
-        print([float(p)*conv_factor for p in power_labels])
+        l = 976E-9
+        f = 0.05
+        D = 1.23E-3
+        M2 = np.pi*2.65E-6*0.14/l
+        od = M2*1*l*f/(np.pi*D)
+        def area(d):
+            A = np.pi*(d/2)**2
+            A = A*100**2 # cm2
+            return A
+        def wz(z, w0):
+            zr = np.pi*od**2/l
+            w=w0*np.sqrt(1+np.abs(z/zr)**2)
+            # w *= 1E6
+            return w
+        w = wz(0.03, od)
+        print('powers', power_labels)
+        density = np.array([float(p)/area(w) for p in power_labels])
+        print(density)
         return density
-
     density = power_to_density(power_labels)
     # print(density)
     fig, axes = plt.subplots(len(wlen_list), 1, figsize=[8, 6],
@@ -400,7 +410,6 @@ def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
     for i, bp in enumerate(power_list.keys()):
         wlen = wlen_list[i]
         ax = next(axiter)
-
         hpslice = slice(-5, -1)
         lpslice = slice(12, 20)
         pamps = np.array(power_list[bp])
@@ -408,11 +417,7 @@ def plot_stationary_bands(power_list, power_labels, wlen_list, filename=None):
         x, y = [power_labels, pamps]
         lp_params = fit_line(xlog[lpslice], ylog[lpslice])
         hp_params = fit_line(xlog[hpslice], ylog[hpslice])
-        print(bp)
-        print('lp', lp_params)
-        print('hp', hp_params)
-        ax.loglog(density, y, label='%s' % bp, marker='o', color=wlen_to_rgb(wlen),
-                markersize=4.5, linewidth = .0)
+        ax.loglog(density, y, label='%s' % bp, marker='o', color=wlen_to_rgb(wlen), markersize=4.5, linewidth = .0)
         ax.loglog(density, np.float_power(10, lp_params['b']+2*xlog), 'k--', linewidth=1.2)
         ax.loglog(density, np.float_power(10, hp_params['b']+1*xlog), 'k--', linewidth=1.2)
         # ax.text(0.05, 0.75,'$\\alpha_1$ = %.2f' % (lp_params['m']), transform=ax.transAxes)
