@@ -14,10 +14,66 @@ import pandas as pd
 from . import fitting as df
 import yaml
 
-DATA_FOLDER = '/home/lec/pCloudDrive/doctorado/UCNP/meds/'
+DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'specs.txt'
 SPEC_YAML = 'data_info.yaml'
-DATA_DEFAULT = 'data.yaml'
+DATA_DEFAULT = 'params.yaml'
+
+
+def load_data(daystr, config_file=None):
+    """ Loads data from de measurements folder.
+    Parameters:
+    -----------
+    daystr          string
+                    Measurement day in the yyyy-mm-dd format.
+    config_file     string
+                    Config file as a yaml file, tipically stored in the same
+                    measurement folder.
+
+    Returns
+    -------
+    cfg             named tuple
+                    Named tuple with the needed variables.
+    """
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    if config_file is not None:
+        yaml_fin = config_file
+    else:
+        yaml_fin = os.path.join(basedir, DATA_DEFAULT)
+    config_dict = yaml.load(open(yaml_fin, 'r'))
+    config = collections.namedtuple('config', config_dict.keys())
+    cfg = config(*config_dict.values())
+    return cfg
+
+
+def load_spectrum(daystr, nmeas, fname=None):
+    """ Get Felix PTI spectrum form csv files.
+    Parameters:
+    daystr:     str
+                nmeas
+    wavelength_list
+    """
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    if not fname:
+        data_fin = os.path.join(basedir, SPEC_DEFAULT)
+    else:
+        data_fin = os.path.join(basedir, fname)
+
+    columns = list()
+    for i in range(132):
+        columns.append(str(i))
+    table = pd.read_csv(data_fin, header=None, delimiter='\t', names=columns)
+    head = 4
+    x = table[str((nmeas-1)*2)][head:]
+    y = table[str((nmeas-1)*2+1)][head:]
+    x = np.array([float(x_i) for x_i in x])
+    y = np.array([float(y_i) for y_i in y])
+    try:
+        first_nan = np.where(np.isnan(x))[0][0]
+    except:
+        first_nan = -1
+    return x[:first_nan], y[:first_nan]
+
 
 def UCNPEmission(object):
     def __init__(self):
@@ -151,29 +207,6 @@ def print_datainfo(daystr, filenames):
     return
 
 
-def load_spectrum(daystr, meas_n, fname=None):
-    """ Get Felix PTI spectrum.wavelength_list
-    """
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    if not fname:
-        # data_fin = os.path.join(basedir, SPEC_DEFAULT)
-        fname = SPEC_DEFAULT
-    data_fin = os.path.join(basedir, fname)
-
-    columns = list()
-    for i in range(132):
-        columns.append(str(i))
-    table = pd.read_csv(data_fin, header=None, delimiter='\t', names=columns)
-    head = 4
-    x = table[str((meas_n-1)*2)][head:]
-    y = table[str((meas_n-1)*2+1)][head:]
-    x = np.array([float(x_i) for x_i in x])
-    y = np.array([float(y_i) for y_i in y])
-    try:
-        first_nan = np.where(np.isnan(x))[0][0]
-    except:
-        first_nan = -1
-    return x[:first_nan], y[:first_nan]
 
 def load_multiple_spectra(daystr, datafile=DATA_DEFAULT):
     import yaml
@@ -231,14 +264,3 @@ def get_timepars(daystr=None, nbins=1200, model='double_neg', filtering=False,
     return np.array(a1_list), np.array(a2_list), np.array(ka_list), np.array(kUC_list)
 
 
-def load_data(daystr, config_file=None):
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    if config_file is not None:
-        yaml_fin = config_file
-    else:
-        yaml_fin = os.path.join(basedir, DATA_DEFAULT)
-    print(yaml_fin)
-    config_dict = yaml.load(open(yaml_fin, 'r'))
-    config = collections.namedtuple('config', config_dict.keys())
-    cfg = config(*config_dict.values())
-    return cfg
