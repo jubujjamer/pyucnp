@@ -200,12 +200,18 @@ class EmissionMeasurement(object):
 class SpectralData(object):
     """ Class to manage emmission, power and decay curves.
     """
-    def __init__(self, spectral_decays=[], relevant_peaks=None,
-                analysis_peaks=None, relevant_bands=None):
+    def __init__(self, relevant_peaks=None, analysis_peaks=None,
+                relevant_bands=None):
         """
         Parameters:
         ----------
-            bands_parameters: (list) [[emission bands (nm), c1, c2 ], ...]
+        relevant_peaks      list
+                            list containing the most prominent wavelenghts.
+        analysis_peaks      list
+                            Wavelenght in wich to focus in this spectrum.
+        relevant_bands      dict
+                            Band definition {'Band name': [start_wl, end_wl], }
+
         """
         __all__ = ['__init__']
         self.relevant_bands = relevant_bands
@@ -215,11 +221,13 @@ class SpectralData(object):
         self.spectra = dict() # keys of this dict are measurement indexes
 
     def addSpectrum(self, spectrum, index):
-        """"Adds a spectrum to spectra container. Index should be consistent with the keys of cfg.spectrum_data for each measurement."""
+        """"Adds a spectrum to spectra container. Index should be consistent
+        with the keys of cfg.spectrum_data for each measurement."""
         self.spectra[index] = spectrum
 
     def addSpectralDecay(self, spectral_decay, index, wavelength):
-        """"Adds a time decay to spectra container. Index should be consistent with the keys of cfg.spectrum_data for each measurement."""
+        """"Adds a time decay to spectra container. Index should be consistent
+        with the keys of cfg.spectrum_data for each measurement."""
         if index not in self.spectral_decays.keys():
             self.spectral_decays[index] = dict()
         self.spectral_decays[index][wavelength] = spectral_decay
@@ -227,7 +235,8 @@ class SpectralData(object):
     def intensityPeaks(self, index):
         """ Calculates the power in isolated spectral peaks.
 
-        It takes the peaks from 'relevant_peaks' and outputs the spectrum intensity for each of them.
+        It takes the peaks from 'relevant_peaks' and outputs the spectrum
+        intensity for each of them by itegrating over a small band.
 
         Parameters
         ----------
@@ -252,7 +261,6 @@ class SpectralData(object):
             spectrum = self.spectra[index]
         except:
             raise Exception('Spectrum with index %i was not added' % index)
-
         names, limits = zip(*self.relevant_bands.items())
         bands_intensities = [spectrum.integrate_band(l, h) for l, h in limits]
         bands_dict = dict(zip(names, np.array(bands_intensities)))
@@ -328,12 +336,12 @@ class SpectralDecay(object):
         """ SpectralDecay initializer.
         Parameters
         ----------
-        time : Numpy array
-            Time data in a 1D array.
-        idata : Numpy array
-            Intensity axis for the spectra decay.
-        excitation_power : float
-            Excitation power for the given measurement.
+        time                array
+                            Time data in a 1D array.
+        idata               array
+                            Intensity axis for the spectra decay.
+        excitation_power    float
+                            Excitation power for the given measurement.
 
         Returns
         -------

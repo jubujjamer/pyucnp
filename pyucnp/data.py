@@ -15,7 +15,7 @@ from . import fitting as df
 import yaml
 
 DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
-SPEC_DEFAULT = 'specs.txt'
+SPEC_DEFAULT = 'sample_1.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'params.yaml'
 
@@ -37,7 +37,7 @@ def load_data(daystr, config_file=None):
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
     if config_file is not None:
-        yaml_fin = config_file
+        yaml_fin = os.path.join(basedir, config_file)
     else:
         yaml_fin = os.path.join(basedir, DATA_DEFAULT)
     config_dict = yaml.load(open(yaml_fin, 'r'))
@@ -74,6 +74,24 @@ def load_spectrum(daystr, nmeas, fname=None):
         first_nan = -1
     return x[:first_nan], y[:first_nan]
 
+def save_pickled(daystr, filename, spectra):
+    """ Save spectra object as pickle file.
+
+    """
+    import pickle
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    pickle_file = os.path.join(basedir, filename+'.sp')
+    with open(pickle_file, 'wb') as outfile:
+        pickle.dump(spectra, outfile)
+
+def load_pickled(daystr, filename):
+    import pickle
+    basedir = os.path.join(DATA_FOLDER, daystr)
+    pickle_file = os.path.join(basedir, filename)
+    print(pickle_file)
+    with open(pickle_file, 'rb') as outfile:
+        sdata = pickle.load(outfile)
+    return sdata
 
 def UCNPEmission(object):
     def __init__(self):
