@@ -13,11 +13,12 @@ import scipy
 import pandas as pd
 from . import fitting as df
 import yaml
+import logging
 
 DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'sample_1.txt'
 SPEC_YAML = 'data_info.yaml'
-DATA_DEFAULT = 'params.yaml'
+DATA_DEFAULT = 'sample_1.yaml'
 
 
 def load_data(daystr, config_file=None):
@@ -36,11 +37,14 @@ def load_data(daystr, config_file=None):
                     Named tuple with the needed variables.
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
-    if config_file is not None:
-        yaml_fin = os.path.join(basedir, config_file)
-    else:
-        yaml_fin = os.path.join(basedir, DATA_DEFAULT)
-    config_dict = yaml.load(open(yaml_fin, 'r'))
+    if not config_file:
+        config_file = DATA_DEFAULT
+    logging.info('Loading data from file %s' % config_file)
+    yaml_fin = os.path.join(basedir, config_file)
+    try:
+        config_dict = yaml.load(open(yaml_fin, 'r'))
+    except:
+        raise FileNotFoundError('File %s not found nor valid.' % config_file)
     config = collections.namedtuple('config', config_dict.keys())
     cfg = config(*config_dict.values())
     return cfg
@@ -280,5 +284,3 @@ def get_timepars(daystr=None, nbins=1200, model='double_neg', filtering=False,
         ka_list.append(results.params['ka'].value)
         kUC_list.append(results.params['kUC'].value)
     return np.array(a1_list), np.array(a2_list), np.array(ka_list), np.array(kUC_list)
-
-

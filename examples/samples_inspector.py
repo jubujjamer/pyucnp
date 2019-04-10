@@ -16,8 +16,8 @@ from pyucnp.experiment import Spectrum
 # plt.style.use('paper_ucnp')
 
 font = {'family' : 'normal',
-                'weight' : 'normal',
-                'size'   : 12}
+        'weight' : 'normal',
+        'size'   : 12}
 
 rc('font', **font)
 
@@ -37,7 +37,7 @@ taus = np.zeros((len(wlen_list), 2))
 xvalues = np.array([0, 1,  3, 4, 5, 6, 7, 8, 9,   11, 12, 13,   15, 16, 17, 18,   20, 21])
 bands_indexes = np.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4])
 mean_values = {'UVA':[0, 0 , 0 ,0] , 'B':[0, 0 , 0 ,0] , 'G':[0, 0 , 0 ,0] ,
-             'Y':[0, 0 , 0 ,0] , 'R':[0, 0 , 0 ,0] }
+             'Y':[0, 0 , 0 ,0] , 'R':[0, 0 , 0 ,0]}
 # Calculate taus and alpha mean values
 wlens, weights = sdata.intensityPeaks(index=33)
 # Normalize weights with respect to integral

@@ -13,6 +13,8 @@ import matplotlib.pylab as plt
 # from mayavi import mlab
 from scipy import integrate
 import matplotlib.pyplot as plt
+import logging
+
 
 def gaussian_function(l, mean, std):
     """ Simple gaussian function.
@@ -198,14 +200,14 @@ class EmissionMeasurement(object):
 
 
 class SpectralData(object):
-    """ Class to manage emmission, power and decay curves.
+    """ Power and decay curves in one class.
     """
     def __init__(self, relevant_peaks=None, analysis_peaks=None,
                 relevant_bands=None):
         """
         Parameters:
         ----------
-        relevant_peaks      list
+        relevant_peak     list
                             list containing the most prominent wavelenghts.
         analysis_peaks      list
                             Wavelenght in wich to focus in this spectrum.
@@ -219,6 +221,16 @@ class SpectralData(object):
         self.analysis_peaks = analysis_peaks
         self.spectral_decays = dict() # keys of this dict are measurement indexes and wavelength
         self.spectra = dict() # keys of this dict are measurement indexes
+
+    @classmethod
+    def from_folder(cls, daystr):
+        """ Starts a class object from a folder's data.
+
+
+        """
+        from pyucnp import data
+        cfg = data.load_data(daystr)
+
 
     def addSpectrum(self, spectrum, index):
         """"Adds a spectrum to spectra container. Index should be consistent
