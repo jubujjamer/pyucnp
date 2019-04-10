@@ -202,49 +202,72 @@ class EmissionMeasurement(object):
 class SpectralData(object):
     """ Power and decay curves in one class.
     """
-    def __init__(self, relevant_peaks=None, analysis_peaks=None,
-                relevant_bands=None):
+    def __init__(self, peaks=None, spectra_names=None, bands=None):
         """
         Parameters:
         ----------
-        relevant_peak     list
-                            list containing the most prominent wavelenghts.
-        analysis_peaks      list
-                            Wavelenght in wich to focus in this spectrum.
-        relevant_bands      dict
+        bands      dict
                             Band definition {'Band name': [start_wl, end_wl], }
 
         """
         __all__ = ['__init__']
-        self.relevant_bands = relevant_bands
-        self.relevant_peaks = relevant_peaks
-        self.analysis_peaks = analysis_peaks
-        self.spectral_decays = dict() # keys of this dict are measurement indexes and wavelength
-        self.spectra = dict() # keys of this dict are measurement indexes
+        self.bands = bands
+        self.peaks = peaks
+        self.spectra = []
+        self.decays = []
+        # self._spectra_names = spectra_names
+        # self.spectral_decays = dict() # keys of this dict are measurement indexes and wavelength
+        # self.spectra = dict() # keys of this dict are measurement indexes
 
     @classmethod
     def from_folder(cls, daystr):
         """ Starts a class object from a folder's data.
 
-
         """
         from pyucnp import data
         cfg = data.load_data(daystr)
+        spectral_data = cls(peaks=cfg.bands, bands=cfg.peaks)
 
+        for index in cfg.spectra:
+            try:
+                description = cfg.spectra_names[index]
+            except:
+                raise Exception('Wrong index %i or no spectra_names in config.' % index)
+            try:
+                wlens, intensity = data.load_spectrum(daystr, index)
+            except:
+                raise Exception('Unexistent sample with index %i.' % index)
+            spectrum = Spectrum(wlens, intensity, index, description,
+            counts_to_power=1, excitation_power=1, normalization='background')
+            spectral_data.append(spectrum)
+            logging.info('Index %i correctly appended.' % index)
+        return spectral_data
 
-    def addSpectrum(self, spectrum, index):
-        """"Adds a spectrum to spectra container. Index should be consistent
-        with the keys of cfg.spectrum_data for each measurement."""
-        self.spectra[index] = spectrum
+    def append(self, spectrum):
+        """ Appends an spectrum to the spectra or decays lists.
+        """
+        if isinstance(spectrum, Spectrum):
+            self.spectra.append(spectrum)
+        elif isinstence(SpectralDecay):
+            self.decays.append(spectrum)
+    # def addSpectralDecay(self, spectral_decay, index, wavelength):
+    #     """"Adds a time decay to spectra container. Index should be consistent
+    #     with the keys of cfg.spectrum_data for each measurement."""
+    #     if index not in self.spectral_decays.keys():
+    #         self.spectral_decays[index] = dict()
+    #     self.spectral_decays[index][wavelength] = spectral_decay
 
-    def addSpectralDecay(self, spectral_decay, index, wavelength):
-        """"Adds a time decay to spectra container. Index should be consistent
-        with the keys of cfg.spectrum_data for each measurement."""
-        if index not in self.spectral_decays.keys():
-            self.spectral_decays[index] = dict()
-        self.spectral_decays[index][wavelength] = spectral_decay
+    def __getitem__(self, index):
+        """ Selects ann spectrum by its index
+        """
+        out_spectrum = None
+        for spectrum in self.spectra:
+            if spectrum.index == index:
+                out_spectrum = spectrum
+        if not out_spectrum:
+            raise KeyError('Index %i not valid.' % index)
 
-    def intensityPeaks(self, index):
+    def power_peaks(self, index):
         """ Calculates the power in isolated spectral peaks.
 
         It takes the peaks from 'relevant_peaks' and outputs the spectrum
@@ -261,11 +284,9 @@ class SpectralData(object):
             Description of returned object.
 
         """
-        try:
-            spectrum = self.spectra[index]
-        except:
-            raise Exception('Spectrum with index %i was not added' % index)
-        peaks_intensities = [spectrum.integrate_band(peak-2, peak+2) for peak in self.relevant_peaks]
+        width = 2
+        spectrum = self.__getitem__[index]
+        peaks_intensities = [spectrum.integrate_band(peak-width, peak+width) for peak in self.peaks]
         return np.array(self.relevant_peaks), np.array(peaks_intensities)
 
     def intensityBands(self, index):
@@ -378,10 +399,12 @@ class Spectrum(object):
     """ Sectrum class to hold all intensity measurements.
         Parameters
         ----------
-        wavelenghts : list or array
+        wavelenghts        list or array
             Wavelenght axis of the spectrum.
-        spectrum_intensity : type
+        spectrum_intensity type
             Intensity axis of the spectrum, should have the same number of points than wavlengths.
+        index               int
+
         counts_to_power : float
             Conversion factor from counts to power in mW to conver the intensity measurements.
         excitation_power : float
@@ -397,8 +420,11 @@ class Spectrum(object):
             Instance of the Spectrum class.
 
         """
-    def __init__(self, wavelenghts, spectrum_intensity, counts_to_power=None, excitation_power=None, normalization='none'):
+    def __init__(self, wavelenghts, spectrum_intensity, index, description,
+                 counts_to_power=None, excitation_power=None, normalization='none'):
 
+        self.description = description
+        self.index = index
         self.excitation_power = excitation_power
         self.counts_to_power = counts_to_power
         self.normalization = normalization
