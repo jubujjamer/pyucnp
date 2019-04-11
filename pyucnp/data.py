@@ -14,11 +14,12 @@ import pandas as pd
 from . import fitting as df
 import yaml
 import logging
+from pathlib import Path
 
 DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
-SPEC_DEFAULT = 'sample_1.txt'
+SPEC_DEFAULT = 'sample1.txt'
 SPEC_YAML = 'data_info.yaml'
-DATA_DEFAULT = 'sample_1.yaml'
+DATA_DEFAULT = 'sample1.yaml'
 
 
 def load_data(daystr, config_file=None):
@@ -36,11 +37,12 @@ def load_data(daystr, config_file=None):
     cfg             named tuple
                     Named tuple with the needed variables.
     """
-    basedir = os.path.join(DATA_FOLDER, daystr)
+    basedir = Path(DATA_FOLDER, daystr)
     if not config_file:
         config_file = DATA_DEFAULT
-    logging.info('Loading data from file %s' % config_file)
-    yaml_fin = os.path.join(basedir, config_file)
+    yaml_fin = basedir / config_file
+    yaml_fin = yaml_fin.with_suffix('.yaml')
+    logging.info('Loading cfg from file %s' % yaml_fin)
     try:
         config_dict = yaml.load(open(yaml_fin, 'r'))
     except:
@@ -50,19 +52,19 @@ def load_data(daystr, config_file=None):
     return cfg
 
 
-def load_spectrum(daystr, nmeas, fname=None):
+def load_spectrum(daystr, nmeas, sample=None):
     """ Get Felix PTI spectrum form csv files.
     Parameters:
     daystr:     str
                 nmeas
     wavelength_list
     """
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    if not fname:
-        data_fin = os.path.join(basedir, SPEC_DEFAULT)
-    else:
-        data_fin = os.path.join(basedir, fname)
-
+    basedir = Path(DATA_FOLDER, daystr)
+    if not sample:
+        sample = SPEC_DEFAULT
+    data_fin = basedir / sample
+    data_fin = data_fin.with_suffix('.txt')
+    logging.info('Loading data from file %s' % data_fin)
     columns = list()
     for i in range(132):
         columns.append(str(i))
@@ -78,21 +80,25 @@ def load_spectrum(daystr, nmeas, fname=None):
         first_nan = -1
     return x[:first_nan], y[:first_nan]
 
-def save_pickled(daystr, filename, spectra):
-    """ Save spectra object as pickle file.
+def save_pickled(daystr, sample, spectra):
+    """ Save SpectralData object as pickle file.
 
     """
     import pickle
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    pickle_file = os.path.join(basedir, filename+'.sp')
+    pickle_file = Path(DATA_FOLDER, daystr, sample)
+    pickle_file = pickle_file.with_suffix('.sp')
+    logging.info('Saving pickle file %s.' % pickle_file)
     with open(pickle_file, 'wb') as outfile:
         pickle.dump(spectra, outfile)
 
-def load_pickled(daystr, filename):
+def load_pickled(daystr, sample):
+    """ Load SpectralData object from pickle file.
+
+    """
     import pickle
-    basedir = os.path.join(DATA_FOLDER, daystr)
-    pickle_file = os.path.join(basedir, filename)
-    print(pickle_file)
+    pickle_file = Path(DATA_FOLDER, daystr, sample)
+    pickle_file = pickle_file.with_suffix('.sp')
+    logging.info('Loading pickle file %s.' % pickle_file)
     with open(pickle_file, 'rb') as outfile:
         sdata = pickle.load(outfile)
     return sdata

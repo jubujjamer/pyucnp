@@ -4,8 +4,8 @@ import pyucnp.plotting as up
 from pyucnp.experiment import SpectralData, Spectrum, SpectralDecay
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
-measurement_day = '2019-02-15'
-spectra = SpectralData.from_folder(measurement_day)
-spectra[10]
+daystr = '2019-02-15'
+spectra = SpectralData.from_folder(daystr='2019-02-15', sample='sample1')
+print(spectra.power_peaks(10))

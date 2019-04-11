@@ -220,13 +220,13 @@ class SpectralData(object):
         # self.spectra = dict() # keys of this dict are measurement indexes
 
     @classmethod
-    def from_folder(cls, daystr):
+    def from_folder(cls, daystr, sample, save_pickled=True):
         """ Starts a class object from a folder's data.
 
         """
         from pyucnp import data
-        cfg = data.load_data(daystr)
-        spectral_data = cls(peaks=cfg.bands, bands=cfg.peaks)
+        cfg = data.load_data(daystr, sample)
+        spectral_data = cls(peaks=cfg.peaks, bands=cfg.bands)
 
         for index in cfg.spectra:
             try:
@@ -234,13 +234,24 @@ class SpectralData(object):
             except:
                 raise Exception('Wrong index %i or no spectra_names in config.' % index)
             try:
-                wlens, intensity = data.load_spectrum(daystr, index)
+                wlens, intensity = data.load_spectrum(daystr, index, sample=sample)
             except:
                 raise Exception('Unexistent sample with index %i.' % index)
             spectrum = Spectrum(wlens, intensity, index, description,
             counts_to_power=1, excitation_power=1, normalization='background')
             spectral_data.append(spectrum)
             logging.info('Index %i correctly appended.' % index)
+        if save_pickled:
+            data.save_pickled(daystr, sample, spectral_data)
+        return spectral_data
+
+    @classmethod
+    def from_pickled(cls, daystr, sample):
+        """ Starts a class object from a folder's data.
+
+        """
+        from pyucnp import data
+        spectral_data = data.load_pickled(daystr, sample)
         return spectral_data
 
     def append(self, spectrum):
@@ -250,12 +261,6 @@ class SpectralData(object):
             self.spectra.append(spectrum)
         elif isinstence(SpectralDecay):
             self.decays.append(spectrum)
-    # def addSpectralDecay(self, spectral_decay, index, wavelength):
-    #     """"Adds a time decay to spectra container. Index should be consistent
-    #     with the keys of cfg.spectrum_data for each measurement."""
-    #     if index not in self.spectral_decays.keys():
-    #         self.spectral_decays[index] = dict()
-    #     self.spectral_decays[index][wavelength] = spectral_decay
 
     def __getitem__(self, index):
         """ Selects ann spectrum by its index
@@ -266,6 +271,7 @@ class SpectralData(object):
                 out_spectrum = spectrum
         if not out_spectrum:
             raise KeyError('Index %i not valid.' % index)
+        return out_spectrum
 
     def power_peaks(self, index):
         """ Calculates the power in isolated spectral peaks.
@@ -284,22 +290,27 @@ class SpectralData(object):
             Description of returned object.
 
         """
-        width = 2
-        spectrum = self.__getitem__[index]
-        peaks_intensities = [spectrum.integrate_band(peak-width, peak+width) for peak in self.peaks]
-        return np.array(self.relevant_peaks), np.array(peaks_intensities)
+        width = 2 # half of the widthof the integrated band
+        sp = self.__getitem__(index)
+        peaks = np.array(self.peaks)
+        ints = [sp.integrate_band(peak-width, peak+width) for peak in self.peaks]
+        return np.array(self.peaks), np.array(ints)
 
-    def intensityBands(self, index):
+    def power_bands(self, index):
+        """ Calculates the integated power in the spectral bands.
+
+        """
         try:
             spectrum = self.spectra[index]
         except:
             raise Exception('Spectrum with index %i was not added' % index)
         names, limits = zip(*self.relevant_bands.items())
         bands_intensities = [spectrum.integrate_band(l, h) for l, h in limits]
-        bands_dict = dict(zip(names, np.array(bands_intensities)))
-        return bands_dict
+        # bands_dict = dict(zip(names, np.array(bands_intensities)))
+        # return bands_dict
+        return names, np.array(bands_intensities)
 
-    def limitingSlopes(self, wavelength):
+    def power_slopes(self, wavelength):
         """ Calculates limiting slopes in a log log plot.
         """
         from pyucnp.fitting import fit_line
@@ -442,6 +453,9 @@ class Spectrum(object):
 
     def integrate_band(self, start_wl, end_wl):
         from scipy.integrate import simps
+        print(self.wavelengths)
+
+        print(np.where(self.wavelengths == start_wl)[0])
         start_pind = int(np.where(self.wavelengths == start_wl)[0])
         end_pind = int(np.where(self.wavelengths == end_wl)[0])
         integral_power = simps(self.spectrum_intensity[start_pind:end_pind])
