@@ -241,6 +241,7 @@ class SpectralData(object):
             counts_to_power=1, excitation_power=1, normalization='background')
             spectral_data.append(spectrum)
             logging.info('Index %i correctly appended.' % index)
+
         return spectral_data
 
     def append(self, spectrum):
@@ -253,6 +254,8 @@ class SpectralData(object):
     # def addSpectralDecay(self, spectral_decay, index, wavelength):
     #     """"Adds a time decay to spectra container. Index should be consistent
     #     with the keys of cfg.spectrum_data for each measurement."""
+
+
     #     if index not in self.spectral_decays.keys():
     #         self.spectral_decays[index] = dict()
     #     self.spectral_decays[index][wavelength] = spectral_decay
@@ -394,6 +397,13 @@ class SpectralDecay(object):
             return False
         return True
 
+    @classmethod
+    def from_hdf5(filename, power):
+        # abris el hdf
+        # elegis el power
+        # creas el obj Spectraldecay
+        pass
+
 
 class Spectrum(object):
     """ Sectrum class to hold all intensity measurements.
@@ -452,7 +462,7 @@ class Spectrum(object):
 
         Returns
         -------
-        wavelenghts: array
+        wavelenghts: arraySpectralDecay
             Wavelenght axis of the spectrum.
         spectrum_corrected: array
             Intensity axis corrected for the given spectrum.
@@ -485,3 +495,7 @@ class Spectrum(object):
         """
         peak_amp = self.integrate_band(start_wl=wavelength-3, end_wl=wavelength+3)
         return peak_amp
+
+    @functools.lru_cache
+    def get_decay_at(self, wl):
+        return SpectralDecay.from_hdf5(archivo, potencia)
