@@ -12,6 +12,7 @@ import matplotlib.pylab as plt
 import scipy
 import pandas as pd
 from . import fitting as df
+from pathlib import Path
 import yaml
 import logging
 
@@ -19,6 +20,14 @@ DATA_FOLDER = '/home/juan/pCloudDrive/doctorado/UCNP/meds/'
 SPEC_DEFAULT = 'sample_1.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'sample_1.yaml'
+er_ion_path = Path('~/git/pyucnp/data/erbium_carnall.csv').expanduser()
+
+def load_ion_states(ion='er'):
+    er_ion = pd.read_csv(er_ion_path, header=2,
+                          names=['observed', 'calculated',
+                          'o-c', 'state', 'j', 'mj'], delimiter='\s+')
+
+    return er_ion
 
 
 def load_data(daystr, config_file=None):
@@ -50,11 +59,37 @@ def load_data(daystr, config_file=None):
     return cfg
 
 
+def load_felix_spectrum(spec_file, nmeas):
+    """ Get Felix PTI spectrum form csv files.
+    Parameters:
+    daystr:     str
+    nmeas
+
+    wavelength_list
+    """
+    columns = list()
+
+    HEADER = 4
+    for i in range(132):
+        columns.append(str(i))
+    df = pd.read_csv(spec_file, delimiter='\t', names=columns,
+                        header=None)
+    x = df[str((nmeas-1)*2)][HEADER:]
+    y = df[str((nmeas-1)*2+1)][HEADER:]
+    x = np.array([float(x_i) for x_i in x])
+    y = np.array([float(y_i) for y_i in y])
+    try:
+        first_nan = np.where(np.isnan(x))[0][0]
+    except:
+        first_nan = -1
+    return x[:first_nan], y[:first_nan]
+
 def load_spectrum(daystr, nmeas, fname=None):
     """ Get Felix PTI spectrum form csv files.
     Parameters:
     daystr:     str
-                nmeas
+    nmeas
+
     wavelength_list
     """
     basedir = os.path.join(DATA_FOLDER, daystr)
