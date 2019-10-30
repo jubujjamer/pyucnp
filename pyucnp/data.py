@@ -21,14 +21,21 @@ SPEC_DEFAULT = 'sample_1.txt'
 SPEC_YAML = 'data_info.yaml'
 DATA_DEFAULT = 'sample_1.yaml'
 er_ion_path = Path('~/git/pyucnp/data/erbium_carnall.csv').expanduser()
+er_transitions_path = Path('~/git/pyucnp/data/erbium_transitions_carnall.csv').expanduser()
 
-def load_ion_states(ion='er'):
-    er_ion = pd.read_csv(er_ion_path, header=2,
+def load_ion_states(ion_name='erbium'):
+    if ion_name == 'erbium':
+        er_ion = pd.read_csv(er_ion_path, header=2,
                           names=['observed', 'calculated',
                           'o-c', 'state', 'j', 'mj'], delimiter='\s+')
-
     return er_ion
 
+def load_ion_transitions(ion_name='erbium'):
+    if ion_name == 'erbium':
+        er_ion = pd.read_csv(er_transitions_path, header=2,
+                          names=['from', 'to',
+                          'ajj', 'kr', 'beta'], delimiter='\s+')
+    return er_ion
 
 def load_data(daystr, config_file=None):
     """ Loads data from de measurements folder.
