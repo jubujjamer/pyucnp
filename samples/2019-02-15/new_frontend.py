@@ -6,6 +6,10 @@ import logging
 
 logging.basicConfig(level=logging.WARNING)
 
-daystr = '2019-02-15'
-spectra = SpectralData.from_folder(daystr='2019-02-15', sample='sample1')
-print(spectra.power_peaks(10))
+measurement_day = '2019-02-15'
+spectra = SpectralData.from_folder(measurement_day)
+
+spectra[10]
+# sp = spectra.get_spectrum_from_power(10)
+#
+# din = sp.get_decay_at(532)
