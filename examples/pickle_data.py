@@ -4,7 +4,7 @@ import pyucnp.plotting as up
 from pyucnp.experiment import SpectralData, Spectrum, SpectralDecay
 
 measurement_day = '2019-02-06'
-cfg = data.load_data(measurement_day, )
+cfg = data.load_cfg(measurement_day, )
 
 spectra = SpectralData()
 # idecay_names = cfg_analysis.idecay_curves

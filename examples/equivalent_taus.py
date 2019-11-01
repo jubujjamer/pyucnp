@@ -10,7 +10,7 @@ from pyucnp.experiment import Spectrum
 
 measurement_day = '2019-02-06'
 filename = 'sample_1.sp'
-cfg = data.load_data(measurement_day, )
+cfg = data.load_cfg(measurement_day, )
 # Open measurements data
 data.load_pickled(daystr, filename)
 with open('filename', 'rb') as infile:

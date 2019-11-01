@@ -7,10 +7,9 @@ from pyucnp import data
 import pyucnp.plotting as up
 from pyucnp.experiment import Spectrum
 
-
 measurement_day = '2019-02-06'
 filename = 'samples_cu.sp'
-cfg = data.load_data(measurement_day, config_file='sample_1.yaml')
+cfg = data.load_cfg(measurement_day, config_file='sample_1.yaml')
 # Open measurements data
 spectra = data.load_pickled(measurement_day, filename)
 
