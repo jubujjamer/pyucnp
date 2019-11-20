@@ -68,9 +68,6 @@ def load_data(daystr, config_file=None):
     return cfg
 
 
-<<<<<<< HEAD
-def load_spectrum(daystr, nmeas, sample=None):
-=======
 def load_felix_spectrum(spec_file, nmeas):
     """ Get Felix PTI spectrum form csv files.
     Parameters:
@@ -97,7 +94,6 @@ def load_felix_spectrum(spec_file, nmeas):
     return x[:first_nan], y[:first_nan]
 
 def load_spectrum(daystr, nmeas, fname=None):
->>>>>>> b9c33793c1bc88e007c4c6063101171787aa5236
     """ Get Felix PTI spectrum form csv files.
     Parameters:
     daystr:     str

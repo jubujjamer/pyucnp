@@ -241,7 +241,6 @@ class SpectralData(object):
             counts_to_power=1, excitation_power=1, normalization='background')
             spectral_data.append(spectrum)
             logging.info('Index %i correctly appended.' % index)
-<<<<<<< HEAD
         if save_pickled:
             data.save_pickled(daystr, sample, spectral_data)
         return spectral_data
@@ -253,9 +252,6 @@ class SpectralData(object):
         """
         from pyucnp import data
         spectral_data = data.load_pickled(daystr, sample)
-=======
-
->>>>>>> b9c33793c1bc88e007c4c6063101171787aa5236
         return spectral_data
 
     def append(self, spectrum):
