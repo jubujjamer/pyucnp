@@ -4,7 +4,7 @@ import pyucnp.plotting as up
 from pyucnp.experiment import SpectralData, Spectrum, SpectralDecay
 
 measurement_day = '2019-02-06'
-cfg = data.load_data(measurement_day, config_file='sample_1.yaml')
+cfg = data.load_cfg(measurement_day, config_file='sample_1.yaml')
 
 spectra_sweep = SpectralData()
 spectra_solvents = SpectralData()

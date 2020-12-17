@@ -22,7 +22,7 @@ font = {'family' : 'normal',
 rc('font', **font)
 
 # Open measurements data
-cfg = dt.load_data(daystr='2017-09-22', config_file='analysis_dataset.yaml')
+cfg = dt.load_cfg(daystr='2017-09-22', config_file='analysis_dataset.yaml')
 with open('filename', 'rb') as infile:
     sdata = pickle.load(infile)
 

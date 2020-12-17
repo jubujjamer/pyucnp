@@ -15,11 +15,9 @@ from scipy import integrate
 import matplotlib.pyplot as plt
 import logging
 
+from pyucnp import data
 
-def gaussian_function(l, mean, std):
-    """ Simple gaussian function.
-    """
-    return 1/(np.sqrt(2*np.pi)*std)*np.exp(-0.5*(l-mean)**2/std**2)
+
 
 
 class SourceBeam(object):
@@ -182,6 +180,11 @@ class EmissionMeasurement(object):
         ----------
             band_parameters: (list) [center, c1, c2]
         """
+
+        def gaussian_function(l, mean, std):
+            """ Simple gaussian function.
+            """
+            return 1/(np.sqrt(2*np.pi)*std)*np.exp(-0.5*(l-mean)**2/std**2)
         center, c1, c2 = band_parameters
         P0 = self.band_integrated_power(c1, c2)
         spectrum = P0*gaussian_function(wlens, center, std=10)
@@ -202,7 +205,7 @@ class EmissionMeasurement(object):
 class SpectralData(object):
     """ Power and decay curves in one class.
     """
-    def __init__(self, peaks=None, spectra_names=None, bands=None):
+    def __init__(self, peaks=None, spectra_names=None, bands=None, daystr=None):
         """
         Parameters:
         ----------
@@ -215,51 +218,48 @@ class SpectralData(object):
         self.peaks = peaks
         self.spectra = []
         self.decays = []
+        self.daystr = daystr
         # self._spectra_names = spectra_names
         # self.spectral_decays = dict() # keys of this dict are measurement indexes and wavelength
         # self.spectra = dict() # keys of this dict are measurement indexes
 
     @classmethod
-    def from_folder(cls, daystr, sample, save_pickled=True):
+    def from_folder(cls, daystr, sample=None, save_pickled=True):
         """ Starts a class object from a folder's data.
-
         """
-        from pyucnp import data
-        cfg = data.load_data(daystr, sample)
-        spectral_data = cls(peaks=cfg.peaks, bands=cfg.bands)
-
-        for index in cfg.spectra:
-            try:
-                description = cfg.spectra_names[index]
-            except:
-                raise Exception('Wrong index %i or no spectra_names in config.' % index)
+        cfg = data.load_cfg(daystr)
+        spectral_data = cls(peaks=cfg.bands, bands=cfg.peaks, daystr=daystr)
+        for index, name in cfg.spectrum_names.items():
+            print(index)
+            description = name
             try:
                 wlens, intensity = data.load_spectrum(daystr, index, sample=sample)
             except:
-                raise Exception('Unexistent sample with index %i.' % index)
+                raise Exception('Not found sample %i.' % index)
             spectrum = Spectrum(wlens, intensity, index, description,
-            counts_to_power=1, excitation_power=1, normalization='background')
+            counts_to_power=1, excitation_power=1, normalization='background',
+            daystr=daystr)
             spectral_data.append(spectrum)
-            logging.info('Index %i correctly appended.' % index)
-        if save_pickled:
-            data.save_pickled(daystr, sample, spectral_data)
+        for index, name in cfg.idecay_datasets.items():
+            for n in name:
+                wlen = n.split('-')[0]
+                time, idata, power = data.load_hdf_idecay(daystr, index, wlen)
+                decay = SpectralDecay(time=time, idata=idata, excitation_power=None)
+                spectral_data.append(decay)
+                logging.info('Index %i correctly appended.' % index)
         return spectral_data
 
-    @classmethod
-    def from_pickled(cls, daystr, sample):
-        """ Starts a class object from a folder's data.
-
-        """
-        from pyucnp import data
-        spectral_data = data.load_pickled(daystr, sample)
-        return spectral_data
+    def details(self):
+        print('Day string %s'%self.daystr)
+        print('Number of spectra %i'%len(self.daystr))
+        print('Number of decays %i'%len(self.decays))
 
     def append(self, spectrum):
         """ Appends an spectrum to the spectra or decays lists.
         """
         if isinstance(spectrum, Spectrum):
             self.spectra.append(spectrum)
-        elif isinstence(SpectralDecay):
+        elif isinstance(spectrum, SpectralDecay):
             self.decays.append(spectrum)
     # def addSpectralDecay(self, spectral_decay, index, wavelength):
     #     """"Adds a time decay to spectra container. Index should be consistent
@@ -277,7 +277,7 @@ class SpectralData(object):
         for spectrum in self.spectra:
             if spectrum.index == index:
                 out_spectrum = spectrum
-        if not out_spectrum:
+        if not isinstance(out_spectrum, Spectrum):
             raise KeyError('Index %i not valid.' % index)
         return out_spectrum
 
@@ -447,13 +447,15 @@ class Spectrum(object):
 
         """
     def __init__(self, wavelenghts, spectrum_intensity, index, description,
-                 counts_to_power=None, excitation_power=None, normalization='none'):
+                 counts_to_power=None, excitation_power=None, normalization='none',
+                 daystr=None):
 
         self.description = description
         self.index = index
         self.excitation_power = excitation_power
         self.counts_to_power = counts_to_power
         self.normalization = normalization
+        self.daystr = daystr
 
         if len(wavelenghts) != len(spectrum_intensity):
             raise Exception('Number of points in wavelenghts should equal number of points in intensities.')
@@ -476,8 +478,17 @@ class Spectrum(object):
         integral_power = simps(self.spectrum_intensity[start_pind:end_pind])
         return integral_power
 
+    def get_decay_at(self, wlen):
+        """ Selects a spectrum by its index
+        """
+        # if isinstance(self.daystr, str):
+        #     data.get_decay_names(self.daystr)
+        time, idata, power = data.load_hdf_idecay(self.daystr, self.index, wlen)
+        decay = SpectralDecay(time=time, idata=idata, excitation_power=None)
+        return decay
+
     def get_values(self):
-        """ Returns the spectrum values considering the transformation chosen.
+        """ Returns the spectrum values apliying the chosen correction.
 
         Returns
         -------
@@ -515,6 +526,6 @@ class Spectrum(object):
         peak_amp = self.integrate_band(start_wl=wavelength-3, end_wl=wavelength+3)
         return peak_amp
 
-    @functools.lru_cache
-    def get_decay_at(self, wl):
-        return SpectralDecay.from_hdf5(archivo, potencia)
+    # @functools.lru_cache
+    # def get_decay_at(self, wl):
+    #     return SpectralDecay.from_hdf5(archivo, potencia)
